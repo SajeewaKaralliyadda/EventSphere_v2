@@ -2,28 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import DynamicButton from '../../components/ui/DynamicButton';
-import { Globe, Building2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Globe, Building2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import api from '../../lib/api';
 
 export default function TenantAdminSetup() {
   const { demoLoginAs } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const tenantId = searchParams.get('tenantId');
   const token = searchParams.get('token');
+  const queryEmail = searchParams.get('email');
+  const queryName = searchParams.get('name');
 
-  const [email, setEmail] = useState('admin@university.edu'); // Simulated email from token
+  const [email, setEmail] = useState(queryEmail || 'admin@university.edu');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // In a real app, you would verify the token here and fetch the associated email
-    if (!token) {
-      setError('Invalid or missing setup token.');
+    if (!tenantId) {
+      setError('Invalid invite link. Missing tenant identifier.');
     }
-  }, [token]);
+  }, [tenantId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -37,13 +42,46 @@ export default function TenantAdminSetup() {
       return;
     }
 
-    // Simulate successful setup
-    setIsSuccess(true);
-    
-    setTimeout(() => {
-      demoLoginAs('TENANT_ADMIN');
-      navigate('/tenant-admin');
-    }, 1500);
+    setIsLoading(true);
+    try {
+      // 1. Create the user in Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      if (!authData.user) {
+        throw new Error('Account creation failed. Please try again.');
+      }
+
+      // 2. Synchronize with the backend with TENANT_ADMIN role
+      await api.post('/api/identity/users/register', {
+        id: authData.user.id,
+        email: email,
+        fullName: queryName || 'Tenant Admin',
+        phone: null,
+        role: 'TENANT_ADMIN',
+        status: 'ACTIVE',
+        tenantId: tenantId,
+        invitedBy: null,
+        attendeeProfile: null,
+        organizerProfile: null,
+      });
+
+      setIsSuccess(true);
+      
+      setTimeout(() => {
+        window.location.href = '/tenant-admin'; // Force reload to apply session
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('Setup failed:', err);
+      setError(err.message || 'Registration failed. Please contact support.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSuccess) {
@@ -148,9 +186,13 @@ export default function TenantAdminSetup() {
             <DynamicButton 
               type="submit" 
               className="w-full py-3 text-base font-bold"
-              disabled={!!error && !password}
+              disabled={!!error && !password || isLoading}
             >
-              Activate Account & Go to Dashboard
+              {isLoading ? (
+                <span className="flex items-center gap-2 justify-center">
+                  <Loader2 className="w-5 h-5 animate-spin" /> Setting Up...
+                </span>
+              ) : 'Activate Account & Go to Dashboard'}
             </DynamicButton>
           </form>
         </div>
