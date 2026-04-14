@@ -4,18 +4,7 @@ import { Check, X, Search, Filter, AlertCircle, Building2, Calendar as CalendarI
 import toast from 'react-hot-toast';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 
-// Mock Data
-const MOCK_ORGANIZER_REQUESTS = [
-  { id: 1, name: 'Alex Johnson', email: 'alex.j@student.gtu.edu', phone: '+1 (555) 123-4567', clubName: 'Computer Science Society', description: 'We are a student-led organization dedicated to fostering innovation and collaboration among tech enthusiasts on campus.', date: '2026-04-01' },
-  { id: 2, name: 'Sarah Williams', email: 'sarah.w@student.gtu.edu', phone: '+1 (555) 987-6543', clubName: 'Debate Club', description: 'Fostering critical thinking and public speaking skills through competitive debate.', date: '2026-03-30' },
-  { id: 3, name: 'Michael Chen', email: 'm.chen@student.gtu.edu', phone: '+1 (555) 456-7890', clubName: 'Robotics Team', description: 'Building autonomous robots for national competitions.', date: '2026-03-28' },
-];
-
-const MOCK_EVENT_REQUESTS = [
-  { id: 1, title: 'Annual Tech Symposium 2026', organizer: 'Computer Science Society', category: 'Technology', date: '2026-05-15', time: '09:00 AM', venue: 'Main Campus Auditorium', capacity: 500, audience: 'University Students Only', status: 'Pending' },
-  { id: 2, title: 'Spring Debate Championship', organizer: 'Debate Club', category: 'Academic', date: '2026-04-20', time: '10:00 AM', venue: 'Student Union Hall', capacity: 200, audience: 'Open to Public', status: 'Pending' },
-  { id: 3, title: 'RoboWars Regional Qualifiers', organizer: 'Robotics Team', category: 'Competition', date: '2026-06-10', time: '08:00 AM', venue: 'Engineering Building Plaza', capacity: 350, audience: 'University Students Only', status: 'Pending' },
-];
+import api from '../../lib/api';
 
 export default function ApprovalCenter() {
   const [activeTab, setActiveTab] = useState<'organizers' | 'events'>('organizers');
@@ -23,7 +12,7 @@ export default function ApprovalCenter() {
   // State for Rejection Modal
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [rejectingItem, setRejectingItem] = useState<{ id: number, type: 'organizer' | 'event', name: string } | null>(null);
+  const [rejectingItem, setRejectingItem] = useState<{ id: any, type: 'organizer' | 'event', name: string } | null>(null);
 
   // State for Details Modal
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -31,8 +20,24 @@ export default function ApprovalCenter() {
   const [selectedRequestType, setSelectedRequestType] = useState<'organizer' | 'event'>('organizer');
 
   // State for lists to allow removing items after action
-  const [organizerRequests, setOrganizerRequests] = useState(MOCK_ORGANIZER_REQUESTS);
-  const [eventRequests, setEventRequests] = useState(MOCK_EVENT_REQUESTS);
+  const [organizerRequests, setOrganizerRequests] = useState<any[]>([]);
+  const [eventRequests, setEventRequests] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [orgRes, eventRes] = await Promise.all([
+          api.get('/api/tenant-admin/approvals/organizers'),
+          api.get('/api/tenant-admin/approvals/events')
+        ]);
+        setOrganizerRequests(orgRes.data);
+        setEventRequests(eventRes.data);
+      } catch (err) {
+        toast.error('Failed to load pending requests');
+      }
+    };
+    fetchData();
+  }, []);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,15 +95,20 @@ export default function ApprovalCenter() {
     return matchesSearch && matchesCategory && matchesStatus && matchesDate;
   });
 
-  const handleApprove = (id: number, type: 'organizer' | 'event') => {
-    if (type === 'organizer') {
-      setOrganizerRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Organizer request approved successfully.');
-    } else {
-      setEventRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Event request approved successfully.');
+  const handleApprove = async (id: any, type: 'organizer' | 'event') => {
+    try {
+      if (type === 'organizer') {
+        await api.post(`/api/tenant-admin/approvals/organizers/${id}/approve`);
+        setOrganizerRequests(prev => prev.filter(req => req.id !== id));
+        toast.success('Organizer request approved successfully.');
+      } else {
+        await api.post(`/api/tenant-admin/approvals/events/${id}/approve`);
+        setEventRequests(prev => prev.filter(req => req.id !== id));
+        toast.success('Event request approved successfully.');
+      }
+    } catch (err) {
+      toast.error('Approval failed.');
     }
-    // In a real app, you would make an API call here
   };
 
   const openRejectModal = (id: number, type: 'organizer' | 'event', name: string) => {
@@ -107,16 +117,21 @@ export default function ApprovalCenter() {
     setIsRejectModalOpen(true);
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (rejectingItem) {
-      if (rejectingItem.type === 'organizer') {
-        setOrganizerRequests(prev => prev.filter(req => req.id !== rejectingItem.id));
-        toast.success('Organizer request rejected.');
-      } else {
-        setEventRequests(prev => prev.filter(req => req.id !== rejectingItem.id));
-        toast.success('Event request rejected.');
+      try {
+        if (rejectingItem.type === 'organizer') {
+          await api.post(`/api/tenant-admin/approvals/organizers/${rejectingItem.id}/reject`);
+          setOrganizerRequests(prev => prev.filter(req => req.id !== rejectingItem.id));
+          toast.success('Organizer request rejected.');
+        } else {
+          await api.post(`/api/tenant-admin/approvals/events/${rejectingItem.id}/reject`);
+          setEventRequests(prev => prev.filter(req => req.id !== rejectingItem.id));
+          toast.success('Event request rejected.');
+        }
+      } catch (err) {
+        toast.error('Rejection failed.');
       }
-      // In a real app, you would make an API call here with the rejectReason
     }
     setIsRejectModalOpen(false);
     setRejectingItem(null);
@@ -128,13 +143,19 @@ export default function ApprovalCenter() {
     setIsDetailsModalOpen(true);
   };
 
-  const handleModalReject = (id: number, type: 'organizer' | 'event', reason: string) => {
-    if (type === 'organizer') {
-      setOrganizerRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Organizer request rejected.');
-    } else {
-      setEventRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Event request rejected.');
+  const handleModalReject = async (id: any, type: 'organizer' | 'event', reason: string) => {
+    try {
+      if (type === 'organizer') {
+        await api.post(`/api/tenant-admin/approvals/organizers/${id}/reject`);
+        setOrganizerRequests(prev => prev.filter(req => req.id !== id));
+        toast.success('Organizer request rejected.');
+      } else {
+        await api.post(`/api/tenant-admin/approvals/events/${id}/reject`);
+        setEventRequests(prev => prev.filter(req => req.id !== id));
+        toast.success('Event request rejected.');
+      }
+    } catch (err) {
+      toast.error('Rejection failed.');
     }
   };
 
@@ -537,8 +558,8 @@ interface RequestDetailsModalProps {
   onClose: () => void;
   request: any;
   type: 'organizer' | 'event';
-  onApprove: (id: number, type: 'organizer' | 'event') => void;
-  onReject: (id: number, type: 'organizer' | 'event', reason: string) => void;
+  onApprove: (id: any, type: 'organizer' | 'event') => void;
+  onReject: (id: any, type: 'organizer' | 'event', reason: string) => void;
 }
 
 function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReject }: RequestDetailsModalProps) {

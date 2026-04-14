@@ -5,18 +5,38 @@ import DynamicButton from '../../components/ui/DynamicButton';
 import { Plus, Users, Calendar, GraduationCap, Ticket, TrendingUp, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const salesData = [
-  { name: 'Mon', sales: 400 },
-  { name: 'Tue', sales: 300 },
-  { name: 'Wed', sales: 550 },
-  { name: 'Thu', sales: 480 },
-  { name: 'Fri', sales: 700 },
-  { name: 'Sat', sales: 900 },
-  { name: 'Sun', sales: 850 },
+import api from '../../lib/api';
+
+const initialSalesData = [
+  { name: 'Mon', sales: 0 },
+  { name: 'Tue', sales: 0 },
+  { name: 'Wed', sales: 0 },
+  { name: 'Thu', sales: 0 },
+  { name: 'Fri', sales: 0 },
+  { name: 'Sat', sales: 0 },
+  { name: 'Sun', sales: 0 },
 ];
 
 export default function TenantAdminDashboard() {
   const { user } = useAuth();
+  const [stats, setStats] = React.useState({
+    registeredStudents: 0,
+    activeOrganizers: 0,
+    upcomingEvents: 0,
+    salesData: initialSalesData
+  });
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await api.get('/api/tenant-admin/dashboard/stats');
+        setStats(response.data);
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const glassCard = "bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm transition-all duration-300 hover:shadow-md";
 
@@ -47,7 +67,7 @@ export default function TenantAdminDashboard() {
             </span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold tracking-tight">14,205</h3>
+            <h3 className="text-3xl font-bold tracking-tight">{stats.registeredStudents.toLocaleString()}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">Registered Students</p>
           </div>
         </div>
@@ -63,7 +83,7 @@ export default function TenantAdminDashboard() {
             </span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold tracking-tight">124</h3>
+            <h3 className="text-3xl font-bold tracking-tight">{stats.activeOrganizers.toLocaleString()}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">Active Organizers</p>
           </div>
         </div>
@@ -76,7 +96,7 @@ export default function TenantAdminDashboard() {
             </div>
           </div>
           <div>
-            <h3 className="text-3xl font-bold tracking-tight">38</h3>
+            <h3 className="text-3xl font-bold tracking-tight">{stats.upcomingEvents.toLocaleString()}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">Upcoming Events</p>
           </div>
         </div>
@@ -94,7 +114,7 @@ export default function TenantAdminDashboard() {
           </div>
           <div className="flex-1 w-full h-full min-h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={salesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={stats.salesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>

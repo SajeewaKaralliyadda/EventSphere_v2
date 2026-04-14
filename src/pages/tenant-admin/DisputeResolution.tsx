@@ -3,6 +3,8 @@ import SidebarLayout from '../../components/ui/SidebarLayout';
 import { ShieldAlert, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+import api from '../../lib/api';
+
 interface Dispute {
   id: string;
   organizer: string;
@@ -12,18 +14,48 @@ interface Dispute {
   date: string;
 }
 
-const MOCK_DISPUTES: Dispute[] = [
-  { id: '1', organizer: 'Tech Society', event: 'Web3 Workshop', reason: 'Event is fake/did not happen', status: 'Open', date: '2026-04-01' },
-  { id: '2', organizer: 'Music Club', event: 'Spring Concert', reason: 'Requested refund ignored', status: 'Open', date: '2026-04-02' },
-  { id: '3', organizer: 'Gaming Guild', event: 'E-Sports Tourney', reason: 'Misleading event description', status: 'Resolved', date: '2026-03-28' },
-];
-
 export default function DisputeResolution() {
-  const [disputes, setDisputes] = useState<Dispute[]>(MOCK_DISPUTES);
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
 
-  const handleSuspend = (id: string, organizer: string) => {
-    setDisputes(disputes.map(d => d.id === id ? { ...d, status: 'Suspended' } : d));
-    toast.success(`Account for ${organizer} has been suspended.`);
+  React.useEffect(() => {
+    const fetchDisputes = async () => {
+      try {
+        const response = await api.get('/api/tenant-admin/disputes');
+        setDisputes(response.data);
+      } catch (err) {
+        toast.error('Failed to fetch disputes');
+      }
+    };
+    fetchDisputes();
+  }, []);
+
+  const handleSuspend = async (id: string, organizer: string) => {
+    try {
+      await api.post(`/api/tenant-admin/disputes/${id}/suspend`);
+      setDisputes(disputes.map(d => d.id === id ? { ...d, status: 'Suspended' } : d));
+      toast.success(`Account for ${organizer} has been suspended.`);
+    } catch (err) {
+      toast.error('Failed to suspend account.');
+    }
+  };
+
+  const handleWarn = async (id: string, organizer: string) => {
+    try {
+      await api.post(`/api/tenant-admin/disputes/${id}/warn`);
+      toast.success(`Warning sent to ${organizer}.`);
+    } catch (err) {
+      toast.error('Failed to send warning.');
+    }
+  };
+
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      await api.put(`/api/tenant-admin/disputes/${id}/status`, { status: newStatus });
+      setDisputes(disputes.map(d => d.id === id ? { ...d, status: newStatus as any } : d));
+      toast.success('Dispute status updated.');
+    } catch (err) {
+      toast.error('Failed to update status.');
+    }
   };
 
   return (
@@ -64,23 +96,39 @@ export default function DisputeResolution() {
                     </td>
                     <td className="p-4 text-slate-500 dark:text-slate-400">{dispute.date}</td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        dispute.status === 'Open' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400' :
-                        dispute.status === 'Suspended' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' :
-                        'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                      }`}>
-                        {dispute.status}
-                      </span>
+                      <select 
+                        value={dispute.status}
+                        onChange={(e) => handleStatusChange(dispute.id, e.target.value)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 ${
+                          dispute.status === 'Open' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400' :
+                          dispute.status === 'Suspended' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' :
+                          'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        <option value="Open">Open</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Suspended">Suspended</option>
+                      </select>
                     </td>
                     <td className="p-4 text-right">
-                      {dispute.status !== 'Suspended' && (
-                        <button 
-                          onClick={() => handleSuspend(dispute.id, dispute.organizer)}
-                          className="flex items-center gap-2 ml-auto px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold rounded-lg transition-colors"
-                        >
-                          <Ban className="w-3.5 h-3.5" /> Suspend Account
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {dispute.status !== 'Suspended' && (
+                          <>
+                            <button 
+                              onClick={() => handleWarn(dispute.id, dispute.organizer)}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold rounded-lg transition-colors"
+                            >
+                              Send Warning
+                            </button>
+                            <button 
+                              onClick={() => handleSuspend(dispute.id, dispute.organizer)}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold rounded-lg transition-colors"
+                            >
+                              <Ban className="w-3.5 h-3.5" /> Suspend
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
