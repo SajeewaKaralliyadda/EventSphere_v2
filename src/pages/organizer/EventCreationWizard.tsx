@@ -4,6 +4,10 @@ import { Check, ChevronRight, ChevronLeft, Upload, Image as ImageIcon, Calendar,
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import DynamicButton from '../../components/ui/DynamicButton';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import toast from 'react-hot-toast';
+import api from '../../lib/api';
 
 const STEPS = [
   { id: 1, title: 'Basic Info' },
@@ -11,17 +15,137 @@ const STEPS = [
   { id: 3, title: 'Tickets' }
 ];
 
+interface TicketTier {
+  id: string;
+  name: string;
+  price: string;
+  quantity: string;
+  description: string;
+}
+
+
 export default function EventCreationWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [noLimit, setNoLimit] = useState(false);
   const [totalCapacity, setTotalCapacity] = useState('');
   const [audienceRestriction, setAudienceRestriction] = useState<'university' | 'public'>('university');
-  const navigate = useNavigate();
+  
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
 
-  const handleNext = () => {
-    if (currentStep < 3) setCurrentStep(prev => prev + 1);
-    else {
+  const [approvalDocFile, setApprovalDocFile] = useState<File | null>(null);
+  const [approvalDocUrl, setApprovalDocUrl] = useState<string | null>(null);
+  const [isUploadingApproval, setIsUploadingApproval] = useState(false);
+
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const [faculties, setFaculties] = useState<{id: string, name: string}[]>([]);
+  React.useEffect(() => {
+    api.get('/api/organizer/faculties')
+       .then(res => setFaculties(res.data))
+       .catch(err => console.error("Failed to load faculties", err));
+  }, []);
+
+  const [ticketTiers, setTicketTiers] = useState<TicketTier[]>([
+    { id: '1', name: 'General Admission', price: '15', quantity: '', description: 'Access to all main stage talks.' }
+  ]);
+
+  const handleAddTier = () => {
+    setTicketTiers(prev => [
+      ...prev,
+      { id: Date.now().toString(), name: '', price: '', quantity: '', description: '' }
+    ]);
+  };
+
+  const handleRemoveTier = (id: string) => {
+    setTicketTiers(prev => prev.filter(t => t.id !== id));
+  };
+
+  const updateTier = (id: string, field: keyof TicketTier, value: string) => {
+    setTicketTiers(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t));
+  };
+
+  const uploadFileBackend = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const response = await api.post('/api/upload/image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data.url;
+    } catch (e) {
+      console.error('File upload failed', e);
+      throw e;
+    }
+  };
+
+  const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      setCoverImageFile(file);
+    }
+  };
+
+  const handleApprovalDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setApprovalDocFile(file);
+    }
+  };
+
+  const handleNext = async () => {
+    if (currentStep === 1) {
+      // Handle uploads if they haven't been uploaded yet
+      let currentCoverUrl = coverImageUrl;
+      if (coverImageFile && !coverImageUrl) {
+        setIsUploadingCover(true);
+        try {
+          currentCoverUrl = await uploadFileBackend(coverImageFile);
+          setCoverImageUrl(currentCoverUrl);
+        } catch (e) {
+          toast.error('Failed to upload cover image');
+        } finally {
+          setIsUploadingCover(false);
+        }
+      }
+
+      let currentApprovalUrl = approvalDocUrl;
+      if (approvalDocFile && !approvalDocUrl) {
+        setIsUploadingApproval(true);
+        try {
+          currentApprovalUrl = await uploadFileBackend(approvalDocFile);
+          setApprovalDocUrl(currentApprovalUrl);
+        } catch (e) {
+          toast.error('Failed to upload approval document');
+        } finally {
+          setIsUploadingApproval(false);
+        }
+      }
+      setCurrentStep(2);
+    } else if (currentStep === 2) {
+      if (!noLimit && !totalCapacity) {
+        toast.error('Please specify a total capacity or check "No Limit"');
+        return;
+      }
+      setCurrentStep(3);
+    } else {
+      if (!noLimit && totalCapacity) {
+        const totalTickets = ticketTiers.reduce((sum, tier) => sum + (parseInt(tier.quantity) || 0), 0);
+        if (totalTickets > parseInt(totalCapacity)) {
+          toast.error(`Total ticket quantities (${totalTickets}) exceed max capacity of ${totalCapacity}`);
+          return;
+        }
+      }
       // Submit form
+      toast.success('Event published successfully!');
       navigate('/organizer');
     }
   };
@@ -107,35 +231,54 @@ export default function EventCreationWizard() {
                       <label className="block text-sm font-medium mb-2">Faculty</label>
                       <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none">
                         <option value="">Select Faculty</option>
-                        <option value="engineering">Engineering</option>
-                        <option value="science">Science</option>
-                        <option value="arts">Arts</option>
-                        <option value="business">Business</option>
+                        {faculties.map(faculty => (
+                          <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium mb-2">Event Cover Image</label>
-                    <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group">
+                    <label className={`block border-2 ${coverImageFile ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-dashed border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50'} rounded-2xl p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group`}>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleCoverImageChange}
+                        className="hidden" 
+                      />
                       <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <ImageIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <p className="text-sm font-medium text-slate-900 dark:text-white mb-1">Drag & drop your image here</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">or click to browse (1920x1080px recommended)</p>
-                    </div>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white mb-1">
+                        {coverImageFile ? coverImageFile.name : 'Drag & drop your image here'}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {isUploadingCover ? "Uploading..." : "or click to browse (1920x1080px recommended)"}
+                      </p>
+                    </label>
                   </div>
 
                   <div className="pt-4">
                     <label className="block text-sm font-bold text-slate-900 dark:text-white mb-2">University Approval Document <span className="text-red-500">*</span></label>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Required for all events. Upload the signed approval letter (PNG, JPG, PDF).</p>
-                    <div className="border-2 border-dashed border-emerald-300 dark:border-emerald-700/50 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl p-10 flex flex-col items-center justify-center text-center hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors cursor-pointer group">
+                    <label className={`block border-2 ${approvalDocFile ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-dashed border-emerald-300 dark:border-emerald-700/50 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'} rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group`}>
+                      <input 
+                        type="file" 
+                        accept="image/*,application/pdf" 
+                        onChange={handleApprovalDocChange}
+                        className="hidden" 
+                      />
                       <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                       </div>
-                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 mb-1">Upload Approval Document</p>
-                      <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">Drag & drop or click to browse</p>
-                    </div>
+                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 mb-1">
+                        {approvalDocFile ? approvalDocFile.name : 'Upload Approval Document'}
+                      </p>
+                      <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">
+                        {isUploadingApproval ? "Uploading..." : "Drag & drop or click to browse"}
+                      </p>
+                    </label>
                   </div>
                 </div>
               )}
@@ -271,33 +414,83 @@ export default function EventCreationWizard() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold mb-6">Ticketing Tiers</h2>
                   
-                  <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 relative group">
-                    <button className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors">
-                      <X className="w-5 h-5" />
-                    </button>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Tier Name</label>
-                        <div className="relative">
-                          <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                          <input type="text" defaultValue="General Admission" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Price</label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                          <input type="number" defaultValue="15" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Description (Optional)</label>
-                      <input type="text" defaultValue="Access to all main stage talks." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
-                    </div>
+                  <div className="space-y-4 mb-6">
+                    <AnimatePresence>
+                      {ticketTiers.map((tier, index) => (
+                        <motion.div 
+                          key={tier.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                          className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 relative group"
+                        >
+                          {ticketTiers.length > 1 && (
+                            <button 
+                              onClick={() => handleRemoveTier(tier.id)}
+                              className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          )}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Tier Name</label>
+                              <div className="relative">
+                                <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                <input 
+                                  type="text" 
+                                  value={tier.name}
+                                  onChange={(e) => updateTier(tier.id, 'name', e.target.value)}
+                                  placeholder="e.g. General Admission" 
+                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Price</label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                <input 
+                                  type="number" 
+                                  value={tier.price}
+                                  onChange={(e) => updateTier(tier.id, 'price', e.target.value)}
+                                  placeholder="e.g. 15" 
+                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Quantity</label>
+                              <div className="relative">
+                                <input 
+                                  type="number" 
+                                  value={tier.quantity}
+                                  onChange={(e) => updateTier(tier.id, 'quantity', e.target.value)}
+                                  placeholder="e.g. 100" 
+                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Description (Optional)</label>
+                            <input 
+                              type="text" 
+                              value={tier.description}
+                              onChange={(e) => updateTier(tier.id, 'description', e.target.value)}
+                              placeholder="e.g. Access to all main stage talks." 
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                            />
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
 
-                  <button className="w-full py-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 font-medium hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center justify-center gap-2">
+                  <button 
+                    onClick={handleAddTier}
+                    className="w-full py-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 font-medium hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center justify-center gap-2"
+                  >
                     <Plus className="w-5 h-5" />
                     Add Another Tier
                   </button>
@@ -317,8 +510,12 @@ export default function EventCreationWizard() {
               Back
             </button>
             
-            <DynamicButton onClick={handleNext} className="px-8 py-3 rounded-xl font-bold flex items-center gap-2">
-              {currentStep === 3 ? 'Publish Event' : 'Continue'}
+            <DynamicButton 
+              onClick={handleNext} 
+              disabled={isUploadingCover || isUploadingApproval}
+              className="px-8 py-3 rounded-xl font-bold flex items-center gap-2"
+            >
+              {isUploadingCover || isUploadingApproval ? "Uploading..." : currentStep === 3 ? 'Publish Event' : 'Continue'}
               {currentStep !== 3 && <ChevronRight className="w-5 h-5" />}
             </DynamicButton>
           </div>

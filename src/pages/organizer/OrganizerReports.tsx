@@ -10,13 +10,9 @@ import {
   BarChart2
 } from 'lucide-react';
 import DynamicButton from '../../components/ui/DynamicButton';
-
-// Mock Data
-const MOCK_EVENTS = [
-  { id: 1, title: 'Annual Tech Symposium 2026' },
-  { id: 2, title: 'Design Thinking Workshop' },
-  { id: 3, title: 'Campus E-Sports Tournament' }
-];
+import { useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import api from '../../lib/api';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June', 
@@ -24,9 +20,18 @@ const MONTHS = [
 ];
 
 export default function OrganizerReports() {
-  const [filterType, setFilterType] = useState<'month' | 'event'>('month');
+  const [searchParams] = useSearchParams();
+  const initEventId = searchParams.get('eventId');
+  const [filterType, setFilterType] = useState<'month' | 'event'>(initEventId ? 'event' : 'month');
   const [selectedMonth, setSelectedMonth] = useState('');
-  const [selectedEvent, setSelectedEvent] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState(initEventId || '');
+  const [myEvents, setMyEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/api/organizer/events')
+       .then(res => setMyEvents(res.data))
+       .catch(err => console.error(err));
+  }, []);
 
   // Determine if a filter is actively selected and valid
   const isFilterActive = (filterType === 'month' && selectedMonth !== '') || 
@@ -107,7 +112,7 @@ export default function OrganizerReports() {
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
                   >
                     <option value="">-- Choose an Event --</option>
-                    {MOCK_EVENTS.map(e => (
+                    {myEvents.map(e => (
                       <option key={e.id} value={e.id}>{e.title}</option>
                     ))}
                   </select>

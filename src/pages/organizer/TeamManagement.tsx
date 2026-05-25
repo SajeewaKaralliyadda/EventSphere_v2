@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import { UserPlus, Trash2, Mail, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../lib/api';
 
 interface TeamMember {
   id: string;
@@ -17,27 +19,45 @@ const MOCK_TEAM: TeamMember[] = [
 ];
 
 export default function TeamManagement() {
+  const { user } = useAuth();
   const [team, setTeam] = useState<TeamMember[]>(MOCK_TEAM);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'Co-Organizer' | 'Gate Scanner'>('Gate Scanner');
+  const [isSending, setIsSending] = useState(false);
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       toast.error('Please enter an email address');
       return;
     }
+    if (!user?.tenantId) {
+      toast.error('Tenant ID missing. Only tenant-bound organizers can invite team members.');
+      return;
+    }
+    setIsSending(true);
 
-    const newMember: TeamMember = {
-      id: Date.now().toString(),
-      email,
-      role,
-      status: 'Pending'
-    };
+    try {
+      const backendRole = role === 'Co-Organizer' ? 'CO_ORGANIZER' : 'GATE_SCANNER';
+      await api.post(`/api/identity/tenants/${user.tenantId}/team-invitations`, {
+        email,
+        role: backendRole
+      });
 
-    setTeam([...team, newMember]);
-    setEmail('');
-    toast.success(`Invitation sent to ${email}`);
+      const newMember: TeamMember = {
+        id: Date.now().toString(),
+        email,
+        role,
+        status: 'Pending'
+      };
+      setTeam([...team, newMember]);
+      setEmail('');
+      toast.success(`Invitation sent to ${email}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to send invitation');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleRemove = (id: string) => {
@@ -96,8 +116,12 @@ export default function TeamManagement() {
                   </p>
                 </div>
 
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-colors mt-2">
-                  Send Invitation
+                <button 
+                  type="submit" 
+                  disabled={isSending}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-colors mt-2 disabled:opacity-50"
+                >
+                  {isSending ? 'Sending...' : 'Send Invitation'}
                 </button>
               </form>
             </div>

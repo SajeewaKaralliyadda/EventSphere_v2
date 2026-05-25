@@ -2,50 +2,75 @@ import React, { useState } from 'react';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import { Download, Mail, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-interface Guest {
-  id: string;
-  name: string;
-  email: string;
-  ticketType: string;
-  purchaseDate: string;
-  status: 'Checked In' | 'Pending';
-}
-
-const MOCK_GUESTS: Guest[] = [
-  { id: '1', name: 'Alex Johnson', email: 'alex@example.com', ticketType: 'VIP Pass', purchaseDate: '2026-10-01', status: 'Checked In' },
-  { id: '2', name: 'Sarah Miller', email: 'sarah@example.com', ticketType: 'General', purchaseDate: '2026-10-02', status: 'Pending' },
-  { id: '3', name: 'David Chen', email: 'david@example.com', ticketType: 'Student', purchaseDate: '2026-10-05', status: 'Pending' },
-  { id: '4', name: 'Emily Davis', email: 'emily@example.com', ticketType: 'General', purchaseDate: '2026-10-10', status: 'Checked In' },
-];
+import api from '../../lib/api';
+import { useEffect } from 'react';
+import { format } from 'date-fns';
 
 export default function GuestList() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [events, setEvents] = useState<any[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [guests, setGuests] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
 
-  const filteredGuests = MOCK_GUESTS.filter(guest => 
-    guest.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    guest.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    guest.ticketType.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    api.get('/api/organizer/events')
+       .then(res => {
+         setEvents(res.data);
+         if (res.data.length > 0) {
+           setSelectedEventId(res.data[0].id);
+         }
+       })
+       .catch(e => console.error("Failed to fetch events", e));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEventId) {
+      setGuests([]);
+      return;
+    }
+    setIsLoading(true);
+    api.get(`/api/organizer/events/${selectedEventId}/guests`)
+       .then(res => setGuests(res.data))
+       .catch(e => toast.error('Failed to load guests'))
+       .finally(() => setIsLoading(false));
+  }, [selectedEventId]);
+
+  const filteredGuests = guests.filter(guest => {
+    const searchLow = searchTerm.toLowerCase();
+    const nameMatch = guest.attendee?.fullName?.toLowerCase().includes(searchLow);
+    const typeMatch = guest.ticketType?.toLowerCase().includes(searchLow);
+    return nameMatch || typeMatch;
+  });
 
   const handleDownload = () => {
     toast.success('Downloading guest list as CSV...');
     // Simulated download
   };
 
-  const handleSendEmail = (e: React.FormEvent) => {
+  const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEventId) {
+      toast.error('Please select an event first');
+      return;
+    }
     if (!emailSubject || !emailBody) {
       toast.error('Please fill in all fields');
       return;
     }
-    toast.success(`Email sent to ${filteredGuests.length} attendees!`);
-    setIsEmailModalOpen(false);
-    setEmailSubject('');
-    setEmailBody('');
+    try {
+      await api.post(`/api/organizer/events/${selectedEventId}/email`, { subject: emailSubject, body: emailBody });
+      toast.success(`Email sent to ${filteredGuests.length} attendees!`);
+    } catch (e) {
+      toast.error('Failed to send emails.');
+    } finally {
+      setIsEmailModalOpen(false);
+      setEmailSubject('');
+      setEmailBody('');
+    }
   };
 
   return (
@@ -54,7 +79,7 @@ export default function GuestList() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Guest List</h1>
-            <p className="text-slate-500 dark:text-slate-400">Manage attendees for Annual Tech Symposium 2026.</p>
+            <p className="text-slate-500 dark:text-slate-400">Manage attendees for your events.</p>
           </div>
           <div className="flex items-center gap-3">
             <button 
@@ -75,12 +100,25 @@ export default function GuestList() {
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-            <div className="relative max-w-md">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-4 justify-between">
+            <div className="relative max-w-md w-full sm:w-80">
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+              >
+                {events.length === 0 && <option value="">No events available</option>}
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>{ev.title}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="relative max-w-md w-full sm:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input 
                 type="text" 
-                placeholder="Search by name, email, or ticket type..." 
+                placeholder="Search by name or ticket type..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -100,34 +138,37 @@ export default function GuestList() {
                 </tr>
               </thead>
               <tbody>
-                {filteredGuests.map((guest) => (
-                  <tr key={guest.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-4 font-medium text-slate-900 dark:text-white">{guest.name}</td>
-                    <td className="p-4 text-slate-500 dark:text-slate-400">{guest.email}</td>
-                    <td className="p-4">
-                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-md text-xs font-medium">
-                        {guest.ticketType}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-500 dark:text-slate-400">{guest.purchaseDate}</td>
-                    <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        guest.status === 'Checked In' 
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' 
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
-                      }`}>
-                        {guest.status}
-                      </span>
-                    </td>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-slate-500">Loading guests...</td>
                   </tr>
-                ))}
-                {filteredGuests.length === 0 && (
+                ) : filteredGuests.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
                       No guests found matching your search.
                     </td>
                   </tr>
-                )}
+                ) : filteredGuests.map((guest) => (
+                  <tr key={guest.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="p-4 font-medium text-slate-900 dark:text-white">{guest.attendee?.fullName || 'Anonymous'}</td>
+                    <td className="p-4 text-slate-500 dark:text-slate-400">Restricted</td>
+                    <td className="p-4">
+                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-md text-xs font-medium">
+                        {guest.ticketType || 'Ticket'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-500 dark:text-slate-400">{guest.purchaseDate ? format(new Date(guest.purchaseDate), 'MMM dd, yyyy') : 'N/A'}</td>
+                    <td className="p-4">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                        guest.status === 'CONFIRMED' 
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' 
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                      }`}>
+                        {guest.status || 'PENDING'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

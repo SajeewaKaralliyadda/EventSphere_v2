@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, X, Search, Filter, AlertCircle, Building2, Calendar as CalendarIcon, Eye, Download } from 'lucide-react';
+import { Check, X, Search, Filter, AlertCircle, Building2, Calendar as CalendarIcon, Eye, Download, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 
@@ -674,27 +674,54 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
                 <div className="space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
                     <h4 className="text-lg font-bold text-slate-900 dark:text-white">
-                      {type === 'organizer' ? 'ID / Approval Document' : 'University Approval Document'}
+                      {type === 'organizer' ? 'ID / Approval Document' : 'Required Documents'}
                     </h4>
-                    <button className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
-                      <Download className="w-4 h-4" /> Download
-                    </button>
+                    {request.documentUrl && (
+                      <a href={request.documentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
+                        <Download className="w-4 h-4" /> Download
+                      </a>
+                    )}
                   </div>
                   
-                  <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden aspect-[3/4] relative flex items-center justify-center">
-                    {/* Placeholder for Document */}
-                    <div className="absolute inset-0 p-4">
-                      <img 
-                        src={`https://picsum.photos/seed/${request.id}/800/1000?grayscale&blur=1`} 
-                        alt="Document Preview" 
-                        className="w-full h-full object-cover rounded-xl opacity-50"
-                        referrerPolicy="no-referrer"
-                      />
+                  {type === 'event' && request.coverImageUrl && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium font-bold text-slate-900 dark:text-white mb-2">Cover Image</p>
+                      <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden aspect-video relative flex items-center justify-center">
+                        <img 
+                          src={request.coverImageUrl} 
+                          alt="Cover Image Preview" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
                     </div>
-                    <div className="relative z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-6 py-4 rounded-xl shadow-lg text-center border border-slate-200 dark:border-slate-700">
-                      <p className="font-bold text-slate-900 dark:text-white mb-1">Document Preview</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">approval_document.pdf</p>
-                    </div>
+                  )}
+
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden aspect-[3/4] relative flex items-center justify-center group p-4">
+                    {/* Document View */}
+                    {request.documentUrl ? (
+                      request.documentUrl.toLowerCase().includes('.pdf') ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 text-center">
+                          <FileText className="w-16 h-16 mb-4 opacity-50" />
+                          <p className="font-bold text-slate-900 dark:text-white mb-1">PDF Document</p>
+                          <a href={request.documentUrl} target="_blank" rel="noreferrer" className="mt-4 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors rounded-lg text-sm font-medium">Open PDF Document</a>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full p-2">
+                          <img 
+                            src={request.documentUrl} 
+                            alt="Document Preview" 
+                            className="w-full h-full object-contain rounded-xl"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )
+                    ) : (
+                       <div className="text-center p-6 text-slate-500">
+                         <FileText className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                         <p>No document provided</p>
+                       </div>
+                    )}
                   </div>
                 </div>
               </div>

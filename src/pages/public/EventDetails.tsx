@@ -103,9 +103,9 @@ export default function EventDetails() {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
         
         <div className="absolute top-6 left-6 md:top-8 md:left-8 z-10">
-          <Link to="/events" className="inline-flex items-center px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white transition-colors font-medium shadow-sm">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Events
-          </Link>
+          <button onClick={() => navigate(-1)} className="inline-flex items-center px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white transition-colors font-medium shadow-sm">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </button>
         </div>
       </div>
 

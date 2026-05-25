@@ -22,49 +22,8 @@ import {
   X
 } from 'lucide-react';
 
-// Mock Data
-const myEvents = [
-  {
-    id: 1,
-    title: 'Annual Tech Symposium 2026',
-    date: 'Oct 15, 2026',
-    venue: 'Main Campus Auditorium',
-    thumbnail: 'https://picsum.photos/seed/tech/400/300?blur=2',
-    bookings: 45,
-    capacity: 100,
-    revenue: 'Rs. 45,000.00',
-    status: 'APPROVED',
-  },
-  {
-    id: 2,
-    title: 'Design Thinking Workshop',
-    date: 'Nov 02, 2026',
-    venue: 'Innovation Lab, Block B',
-    thumbnail: 'https://picsum.photos/seed/design/400/300?blur=2',
-    bookings: 120,
-    capacity: 150,
-    revenue: 'Rs. 60,000.00',
-    status: 'APPROVED',
-  },
-  {
-    id: 3,
-    title: 'Campus E-Sports Tournament',
-    date: 'Dec 10, 2026',
-    venue: 'Student Center',
-    thumbnail: 'https://picsum.photos/seed/esports/400/300?blur=2',
-    bookings: 0,
-    capacity: 500,
-    revenue: 'Rs. 0.00',
-    status: 'PENDING',
-  }
-];
-
-const recentBookings = [
-  { id: 'B-101', buyer: 'Alex Johnson', event: 'Annual Tech Symposium', type: 'VIP Pass', qty: 2, amount: 'Rs. 3,000.00', date: '2 hours ago' },
-  { id: 'B-102', buyer: 'Sarah Miller', event: 'Design Thinking Workshop', type: 'General', qty: 1, amount: 'Rs. 500.00', date: '5 hours ago' },
-  { id: 'B-103', buyer: 'David Chen', event: 'Annual Tech Symposium', type: 'Student', qty: 3, amount: 'Rs. 0.00', date: '1 day ago' },
-  { id: 'B-104', buyer: 'Emily Davis', event: 'Design Thinking Workshop', type: 'General', qty: 2, amount: 'Rs. 1,000.00', date: '1 day ago' },
-];
+import api from '../../lib/api';
+import { format } from 'date-fns';
 
 export default function OrganizerDashboard() {
   const { user } = useAuth();
@@ -78,8 +37,49 @@ export default function OrganizerDashboard() {
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [cancelConfirmText, setCancelConfirmText] = useState('');
+  const [myEvents, setMyEvents] = useState<any[]>([]);
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pendingFilter, setPendingFilter] = useState<'ALL' | 'PENDING'>('ALL');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchData = async () => {
+      try {
+        const [eventsRes, bookingsRes] = await Promise.all([
+          api.get('/api/organizer/events'),
+          api.get('/api/organizer/bookings/recent')
+        ]);
+        if (!cancelled) {
+          setMyEvents(eventsRes.data);
+          setRecentBookings(bookingsRes.data);
+        }
+      } catch (error) {
+        console.error("Dashboard fetch error:", error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    fetchData();
+    return () => { cancelled = true; };
+  }, []);
+
+  const displayedEvents = pendingFilter === 'PENDING' 
+    ? myEvents.filter(e => e.status === 'PENDING') 
+    : myEvents;
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'APPROVED': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400';
+      case 'PENDING': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400';
+      case 'REJECTED': return 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400';
+      default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400';
+    }
+  };
+
+  const pendingCount = myEvents.filter(e => e.status === 'PENDING').length;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -150,42 +150,52 @@ export default function OrganizerDashboard() {
         </div>
 
         {/* Alert Banner */}
-        <div className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 text-yellow-800 dark:text-yellow-500">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-500/20 rounded-full shrink-0">
-              <AlertTriangle className="w-5 h-5" />
+        {pendingCount > 0 && (
+          <div className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-yellow-800 dark:text-yellow-500">
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-500/20 rounded-full shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <p className="font-medium text-sm md:text-base">
+                You have <span className="font-bold">{pendingCount} events</span> pending approval from university administration.
+              </p>
             </div>
-            <p className="font-medium text-sm md:text-base">
-              <strong>2 events pending approval.</strong> Being reviewed by the admin team.
-            </p>
+            <button 
+              onClick={() => setPendingFilter(prev => prev === 'PENDING' ? 'ALL' : 'PENDING')}
+              className="shrink-0 px-4 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-500/20 dark:hover:bg-yellow-500/30 text-yellow-800 dark:text-yellow-500 text-sm font-bold rounded-lg transition-colors"
+            >
+              {pendingFilter === 'PENDING' ? 'Show All Events' : 'View Pending'}
+            </button>
           </div>
-          <button className="shrink-0 px-4 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-500/20 dark:hover:bg-yellow-500/30 text-yellow-800 dark:text-yellow-500 text-sm font-bold rounded-lg transition-colors">
-            View Events
-          </button>
-        </div>
+        )}
 
         {/* Main Content (Two Columns) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           
           {/* Left Column (70%): Your Events */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6" id="your-events">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Your Events</h2>
-              <button type="button" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                View All
-              </button>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Your Events {pendingFilter === 'PENDING' ? '(Pending)' : ''}</h2>
             </div>
             
             <div className="space-y-4">
-              {myEvents.map((event) => {
-                const fillRate = Math.round((event.bookings / event.capacity) * 100);
+              {isLoading ? (
+                <div className="p-8 text-center text-slate-500">Loading events...</div>
+              ) : displayedEvents.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                  No events found. {pendingFilter === 'PENDING' ? 'You have no pending events.' : 'Create one today!'}
+                </div>
+              ) : displayedEvents.map((event) => {
+                const bookings = event.bookings || 0;
+                const capacity = event.capacity || 0;
+                const fillRate = capacity ? Math.round((bookings / capacity) * 100) : 0;
                 const isApproved = event.status === 'APPROVED';
 
                 return (
                   <div key={event.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row gap-5 transition-all hover:shadow-md">
                     {/* Thumbnail */}
                     <div className="w-full sm:w-40 h-32 sm:h-auto shrink-0 rounded-xl overflow-hidden relative">
-                      <img src={event.thumbnail} alt={event.title} className="w-full h-full object-cover" />
+                      <img src={event.coverImage || 'https://via.placeholder.com/400x200?text=No+Image'} alt={event.title} className="w-full h-full object-cover" />
                       <div className="absolute top-2 left-2">
                         <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md backdrop-blur-md shadow-sm ${
                           isApproved ? 'bg-emerald-500/90 text-white' : 'bg-orange-500/90 text-white'
@@ -201,8 +211,8 @@ export default function OrganizerDashboard() {
                         <div>
                           <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1 line-clamp-1 pr-8">{event.title}</h3>
                           <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400 mb-3">
-                            <span className="flex items-center gap-1"><CalendarIcon className="w-3.5 h-3.5" /> {event.date}</span>
-                            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {event.venue}</span>
+                            <span className="flex items-center gap-1"><CalendarIcon className="w-3.5 h-3.5" /> {event.eventDate ? format(new Date(event.eventDate), 'MMM dd, yyyy') : 'N/A'}</span>
+                            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {event.venue || 'TBA'}</span>
                           </div>
                         </div>
                         
@@ -256,19 +266,22 @@ export default function OrganizerDashboard() {
                                 style={{ width: `${fillRate}%` }}
                               ></div>
                             </div>
-                            <span className="text-sm font-bold text-slate-900 dark:text-white">{event.bookings}/{event.capacity}</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">{bookings}/{capacity}</span>
                           </div>
                         </div>
                         <div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Revenue</p>
-                          <p className="text-sm font-bold text-slate-900 dark:text-white">{event.revenue}</p>
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">{event.revenue || 'Rs. 0.00'}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Actions */}
                     <div className="flex sm:flex-col items-center justify-end gap-2 sm:border-l border-slate-100 dark:border-slate-800 sm:pl-5 pt-4 sm:pt-0 border-t sm:border-t-0">
-                      <button className="flex-1 sm:flex-none w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg transition-colors">
+                      <button 
+                        onClick={() => navigate(`/organizer/reports?eventId=${event.id}`)}
+                        className="flex-1 sm:flex-none w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg transition-colors"
+                      >
                         <BarChart2 className="w-3.5 h-3.5" /> Analytics
                       </button>
                       <button 
@@ -310,7 +323,10 @@ export default function OrganizerDashboard() {
                   <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300" />
                 </button>
                 
-                <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors group">
+                <button 
+                  onClick={() => document.getElementById('your-events')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors group"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                       <CalendarIcon className="w-4 h-4" />
@@ -339,26 +355,29 @@ export default function OrganizerDashboard() {
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">Recent Bookings</h2>
-                <button type="button" className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                  View All
-                </button>
               </div>
               
               <div className="space-y-5">
-                {recentBookings.map((booking) => (
+                {isLoading ? (
+                  <div className="p-4 text-center text-sm text-slate-500">Loading bookings...</div>
+                ) : recentBookings.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">No bookings yet.</div>
+                ) : recentBookings.map((booking) => (
                   <div key={booking.id} className="flex gap-4">
                     <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 font-bold shrink-0">
-                      {booking.buyer.charAt(0)}
+                      {booking.attendee?.fullName ? booking.attendee.fullName.charAt(0).toUpperCase() : 'U'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-0.5">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate pr-2">{booking.buyer}</p>
-                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 shrink-0">{booking.amount}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate pr-2">{booking.attendee?.fullName || 'Anonymous'}</p>
+                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                          {booking.amountPaid === 0 ? 'Free' : `$${booking.amountPaid}`}
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mb-1">{booking.event}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mb-1">{booking.event?.title || 'Event'}</p>
                       <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
-                        <span>{booking.qty}x {booking.type}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {booking.date}</span>
+                        <span>{booking.quantity || 1}x {booking.ticketType || 'Ticket'}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {booking.purchaseDate ? format(new Date(booking.purchaseDate), 'MMM dd') : ''}</span>
                       </div>
                     </div>
                   </div>
