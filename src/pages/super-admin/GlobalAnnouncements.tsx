@@ -2,15 +2,11 @@ import React, { useState, useEffect } from 'react';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import { Megaphone, Send, Clock, Loader2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../lib/api';
+import { listAnnouncements, createAnnouncement } from '../../services/superAdminService';
+import type { AnnouncementResponse } from '../../services/superAdminService';
 
-interface Announcement {
-  id: string;
-  message: string;
-  color: 'blue' | 'yellow' | 'red';
-  expiryDate: string;
-  createdAt: string;
-}
+// Re-use the typed interface from the service layer
+type Announcement = AnnouncementResponse;
 
 const COLOR_STYLE: Record<string, string> = {
   blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
@@ -29,7 +25,7 @@ export default function GlobalAnnouncements() {
   const fetchAnnouncements = async () => {
     setIsLoading(true);
     try {
-      const { data } = await api.get<Announcement[]>('/api/admin/announcements');
+      const data = await listAnnouncements();
       setAnnouncements(data);
     } catch {
       // Silently fail — show empty state
@@ -51,14 +47,10 @@ export default function GlobalAnnouncements() {
 
     setIsSubmitting(true);
     try {
-      const { data } = await api.post<Announcement>('/api/admin/announcements', {
-        message,
-        color,
-        expiryDate,
-      });
+      const data = await createAnnouncement({ message, bannerColor: color, expiryDate });
 
       // Also keep the localStorage banner so GlobalNavbar updates immediately
-      localStorage.setItem('globalAnnouncement', JSON.stringify({ message, color, expiryDate }));
+      localStorage.setItem('globalAnnouncement', JSON.stringify({ message, bannerColor: color, expiryDate }));
       window.dispatchEvent(new Event('announcementUpdated'));
 
       setAnnouncements((prev) => [data, ...prev]);
@@ -174,8 +166,8 @@ export default function GlobalAnnouncements() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 dark:text-white">{ann.message}</p>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${COLOR_STYLE[ann.color]}`}>
-                        {ann.color.charAt(0).toUpperCase() + ann.color.slice(1)}
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${COLOR_STYLE[ann.bannerColor]}`}>
+                        {ann.bannerColor.charAt(0).toUpperCase() + ann.bannerColor.slice(1)}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400">
                         Expires: {ann.expiryDate}

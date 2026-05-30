@@ -1,18 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ArrowLeft, Calendar as CalendarIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, parseISO } from 'date-fns';
 import SidebarLayout from '../../components/ui/SidebarLayout';
-
-// Mock purchased tickets data
-const PURCHASED_TICKETS = [
-  { id: '1', title: 'Annual Tech Symposium 2026', date: '2026-10-15', color: 'bg-blue-500' },
-  { id: '2', title: 'Fall Music Festival', date: '2026-11-02', color: 'bg-purple-500' },
-  { id: '3', title: 'Startup Pitch Night', date: '2026-09-28', color: 'bg-emerald-500' },
-  // Add some dates for the current month (April 2026) to show up in the default view
-  { id: '4', title: 'Spring Career Fair', date: '2026-04-10', color: 'bg-amber-500' },
-  { id: '5', title: 'Web3 Workshop', date: '2026-04-22', color: 'bg-blue-500' },
-];
+import { getUpcomingTickets, getPastTickets } from '../../services/attendeeService';
 
 export default function AttendeeCalendar() {
   const navigate = useNavigate();
@@ -33,8 +24,18 @@ export default function AttendeeCalendar() {
   const startDayOfWeek = startDate.getDay();
   const paddingDays = Array.from({ length: startDayOfWeek }).map((_, i) => i);
 
+  const [tickets, setTickets] = useState<any[]>([]);
+
+  useEffect(() => {
+    Promise.all([getUpcomingTickets(), getPastTickets()])
+      .then(([upcoming, past]) => {
+        setTickets([...upcoming, ...past]);
+      })
+      .catch(err => console.error('Failed to load tickets for calendar', err));
+  }, []);
+
   const getEventsForDay = (day: Date) => {
-    return PURCHASED_TICKETS.filter(ticket => isSameDay(parseISO(ticket.date), day));
+    return tickets.filter(ticket => isSameDay(parseISO(ticket.eventDate), day));
   };
 
   return (
@@ -113,14 +114,14 @@ export default function AttendeeCalendar() {
                   </div>
                   
                   <div className="space-y-1.5 overflow-y-auto max-h-[70px] sm:max-h-[100px] no-scrollbar">
-                    {dayEvents.map(event => (
+                    {dayEvents.map((event, index) => (
                       <Link 
-                        key={event.id} 
-                        to={`/events/${event.id}`}
-                        className={`block px-2 py-1.5 text-xs font-medium text-white rounded-lg truncate transition-transform hover:scale-[1.02] ${event.color}`}
-                        title={event.title}
+                        key={`${event.eventId}-${index}`} 
+                        to={`/events/${event.eventId}`}
+                        className={`block px-2 py-1.5 text-xs font-medium text-white rounded-lg truncate transition-transform hover:scale-[1.02] bg-blue-500`}
+                        title={event.eventTitle}
                       >
-                        {event.title}
+                        {event.eventTitle}
                       </Link>
                     ))}
                   </div>

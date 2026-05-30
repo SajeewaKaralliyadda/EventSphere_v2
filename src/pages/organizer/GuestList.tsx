@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import api from '../../lib/api';
 import { useEffect } from 'react';
 import { format } from 'date-fns';
+import { useAuth } from '../../contexts/AuthContext';
+import { listEvents, listBookings, emailAttendees } from '../../services/organizerService';
 
 export default function GuestList() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,40 +17,67 @@ export default function GuestList() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
-    api.get('/api/organizer/events')
-       .then(res => {
-         setEvents(res.data);
-         if (res.data.length > 0) {
-           setSelectedEventId(res.data[0].id);
-         }
-       })
-       .catch(e => console.error("Failed to fetch events", e));
-  }, []);
+    if (user?.id) {
+      listEvents(user.id)
+        .then(data => {
+          setEvents(data);
+          if (data.length > 0) setSelectedEventId(data[0].id);
+        })
+        .catch(e => console.error("Failed to fetch events", e));
+    }
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!selectedEventId) {
+    // Only fetch if eventId is a valid UUID, not 'undefined' or empty
+    if (!selectedEventId || selectedEventId === 'undefined') {
       setGuests([]);
       return;
     }
     setIsLoading(true);
-    api.get(`/api/organizer/events/${selectedEventId}/guests`)
-       .then(res => setGuests(res.data))
-       .catch(e => toast.error('Failed to load guests'))
-       .finally(() => setIsLoading(false));
+    listBookings(selectedEventId)
+      .then(res => setGuests(res))
+      .catch(e => toast.error('Failed to load guests'))
+      .finally(() => setIsLoading(false));
   }, [selectedEventId]);
 
   const filteredGuests = guests.filter(guest => {
     const searchLow = searchTerm.toLowerCase();
-    const nameMatch = guest.attendee?.fullName?.toLowerCase().includes(searchLow);
+    const nameMatch = guest.purchaserEmail?.toLowerCase().includes(searchLow);
     const typeMatch = guest.ticketType?.toLowerCase().includes(searchLow);
-    return nameMatch || typeMatch;
+    const isNotPendingPayment = guest.status !== 'PENDING_PAYMENT';
+    return (nameMatch || typeMatch) && isNotPendingPayment;
   });
 
   const handleDownload = () => {
+    if (filteredGuests.length === 0) {
+      toast.error('No guests to export.');
+      return;
+    }
+
+    const headers = ['Name,Email,Ticket Type,Purchase Date,Status'];
+    const rows = filteredGuests.map(guest => {
+      const name = (guest.purchaserEmail?.split('@')[0] || 'Anonymous').replace(/,/g, '');
+      const email = (guest.purchaserEmail || '').replace(/,/g, '');
+      const type = (guest.ticketType || 'Ticket').replace(/,/g, '');
+      const date = guest.createdAt ? format(new Date(guest.createdAt), 'MMM dd yyyy') : 'N/A';
+      const status = guest.status || 'PENDING';
+      return `${name},${email},${type},${date},${status}`;
+    });
+
+    const csvContent = headers.concat(rows).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `guests_${selectedEventId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     toast.success('Downloading guest list as CSV...');
-    // Simulated download
   };
 
   const handleSendEmail = async (e: React.FormEvent) => {
@@ -61,8 +90,9 @@ export default function GuestList() {
       toast.error('Please fill in all fields');
       return;
     }
+    if (!user?.id) return;
     try {
-      await api.post(`/api/organizer/events/${selectedEventId}/email`, { subject: emailSubject, body: emailBody });
+      await emailAttendees(user.id, selectedEventId, { subject: emailSubject, body: emailBody });
       toast.success(`Email sent to ${filteredGuests.length} attendees!`);
     } catch (e) {
       toast.error('Failed to send emails.');
@@ -150,14 +180,14 @@ export default function GuestList() {
                   </tr>
                 ) : filteredGuests.map((guest) => (
                   <tr key={guest.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-4 font-medium text-slate-900 dark:text-white">{guest.attendee?.fullName || 'Anonymous'}</td>
-                    <td className="p-4 text-slate-500 dark:text-slate-400">Restricted</td>
+                    <td className="p-4 font-medium text-slate-900 dark:text-white">{guest.purchaserEmail?.split('@')[0] || 'Anonymous'}</td>
+                    <td className="p-4 text-slate-500 dark:text-slate-400">{guest.purchaserEmail}</td>
                     <td className="p-4">
                       <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-md text-xs font-medium">
                         {guest.ticketType || 'Ticket'}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-500 dark:text-slate-400">{guest.purchaseDate ? format(new Date(guest.purchaseDate), 'MMM dd, yyyy') : 'N/A'}</td>
+                    <td className="p-4 text-slate-500 dark:text-slate-400">{guest.createdAt ? format(new Date(guest.createdAt), 'MMM dd, yyyy') : 'N/A'}</td>
                     <td className="p-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                         guest.status === 'CONFIRMED' 

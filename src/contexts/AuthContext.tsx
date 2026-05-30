@@ -54,6 +54,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   /** Demo / landing-page simulation only — not a real Supabase session. */
   demoLoginAs: (role: Role) => void;
 }
@@ -196,6 +197,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     await fetchUserProfile();
   };
 
+  const resetPassword = async (email: string): Promise<void> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
+  };
+
   const demoLoginAs = (role: Role) => {
     setUser({
       id: "demo-user",
@@ -217,6 +225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         login,
         logout,
         refreshProfile,
+        resetPassword,
         demoLoginAs,
       }}
     >

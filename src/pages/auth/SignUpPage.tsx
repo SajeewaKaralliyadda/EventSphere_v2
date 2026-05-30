@@ -4,6 +4,8 @@ import { Globe, Upload, AlertCircle } from "lucide-react";
 import DynamicButton from "../../components/ui/DynamicButton";
 import { supabase } from "../../lib/supabase";
 import api from "../../lib/api";
+import { getActiveUniversities } from "../../services/publicService";
+import logo from "../../assets/logo.png";
 
 const inputClass =
   "w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all";
@@ -14,26 +16,29 @@ interface PublicTenant {
   id: string;
   name: string;
   domain: string;
+  allowedDomains: string[];
 }
 
 function normalizeDomain(domain: string): string {
   return domain.replace(/^@/, "").trim().toLowerCase();
 }
 
-/** True if the email's host equals the tenant domain or is a subdomain of it. */
+/** True if the email's host equals the tenant domain, one of its allowed domains, or is a subdomain of them. */
 function universityEmailMatchesDomain(
   email: string,
   tenantDomain: string,
+  allowedDomains: string[] = []
 ): boolean {
-  const norm = normalizeDomain(tenantDomain);
-  if (!norm || !email.trim()) return false;
+  if (!email.trim()) return false;
   const at = email.trim().toLowerCase().lastIndexOf("@");
   if (at === -1) return false;
-  const host = email
-    .trim()
-    .toLowerCase()
-    .slice(at + 1);
-  return host === norm || host.endsWith("." + norm);
+  const host = email.trim().toLowerCase().slice(at + 1);
+
+  const domainsToCheck = [tenantDomain, ...(allowedDomains || [])]
+    .map(normalizeDomain)
+    .filter(Boolean);
+
+  return domainsToCheck.some((domain) => host === domain || host.endsWith("." + domain));
 }
 
 async function uploadStudentIdCard(file: File, userId: string): Promise<string> {
@@ -88,7 +93,8 @@ export default function SignUpPage() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get<PublicTenant[]>("/api/public/tenants");
+        // Uses the correct versioned endpoint: GET /api/public/home/universities
+        const data = await getActiveUniversities();
         if (!cancelled) setTenants(Array.isArray(data) ? data : []);
       } catch (e) {
         console.error(e);
@@ -185,6 +191,14 @@ export default function SignUpPage() {
         setError("Please select your university.");
         return;
       }
+      if (!selectedTenant) {
+        setError("Invalid university selection.");
+        return;
+      }
+      if (!universityEmailMatchesDomain(email, selectedTenant.domain, selectedTenant.allowedDomains)) {
+        setError("Please use your official university email address associated with the selected campus.");
+        return;
+      }
       if (!approvalDocFile && !approvalDocUrl) {
         setError("Please upload your university approval document.");
         return;
@@ -204,9 +218,9 @@ export default function SignUpPage() {
         setError("University email is required.");
         return;
       }
-      if (!universityEmailMatchesDomain(universityEmail, selectedTenant.domain)) {
+      if (!universityEmailMatchesDomain(universityEmail, selectedTenant.domain, selectedTenant.allowedDomains)) {
         setError(
-          `University email must use your institution's domain (@${normalizeDomain(selectedTenant.domain)}).`,
+          "Please use your official university email address associated with the selected campus.",
         );
         return;
       }
@@ -330,8 +344,8 @@ export default function SignUpPage() {
 
         <div className="relative z-10 w-full max-w-lg">
           <Link to="/" className="inline-flex items-center gap-2 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center p-1">
+              <img src={logo} alt="EventSphere Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">
               EventSphere

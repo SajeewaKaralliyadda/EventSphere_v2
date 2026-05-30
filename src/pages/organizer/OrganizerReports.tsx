@@ -13,6 +13,10 @@ import DynamicButton from '../../components/ui/DynamicButton';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import api from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { listEvents } from '../../services/organizerService';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June', 
@@ -26,24 +30,101 @@ export default function OrganizerReports() {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedEvent, setSelectedEvent] = useState(initEventId || '');
   const [myEvents, setMyEvents] = useState<any[]>([]);
+  const { user } = useAuth();
 
   useEffect(() => {
-    api.get('/api/organizer/events')
-       .then(res => setMyEvents(res.data))
-       .catch(err => console.error(err));
-  }, []);
+    if (user?.id) {
+      listEvents(user.id)
+        .then(data => setMyEvents(data))
+        .catch(err => console.error(err));
+    }
+  }, [user?.id]);
 
   // Determine if a filter is actively selected and valid
   const isFilterActive = (filterType === 'month' && selectedMonth !== '') || 
                          (filterType === 'event' && selectedEvent !== '');
 
   // Dynamic metrics based on filter type
+  const relevantEvents = filterType === 'event' && selectedEvent 
+      ? myEvents.filter(e => e.id === selectedEvent) 
+      : myEvents;
+  
+  const totalBookings = relevantEvents.reduce((acc, ev) => acc + (ev.bookings || 0), 0);
+  const totalRevenue = relevantEvents.reduce((acc, ev) => acc + parseFloat(ev.revenue?.toString().replace(/[^0-9.-]+/g, "") || "0"), 0);
+
   const metrics = [
-    ...(filterType === 'month' ? [{ title: 'Total Events', value: '12', icon: CalendarIcon, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-500/20' }] : []),
-    { title: 'Active Events', value: '3', icon: Activity, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-500/20' },
-    { title: 'Total Revenue', value: 'Rs. 125,000.00', icon: DollarSign, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-500/20' },
-    { title: 'Total Bookings', value: '850', icon: Ticket, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-500/20' },
+    ...(filterType === 'month' ? [{ title: 'Total Events', value: myEvents.length.toString(), icon: CalendarIcon, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-500/20' }] : []),
+    { title: 'Active Events', value: relevantEvents.filter(e => e.status === 'PUBLISHED').length.toString(), icon: Activity, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-500/20' },
+    { title: 'Total Revenue', value: `Rs. ${totalRevenue.toFixed(2)}`, icon: DollarSign, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-500/20' },
+    { title: 'Total Bookings', value: totalBookings.toString(), icon: Ticket, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-500/20' },
   ];
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    const primaryColor: [number, number, number] = [30, 58, 138]; // #1e3a8a
+    
+    // 1. Header
+    doc.setFontSize(28);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text("EventSphere", 14, 22);
+    
+    // 2. Subtitle
+    doc.setFontSize(16);
+    doc.setTextColor(51, 65, 85);
+    doc.setFont("helvetica", "normal");
+    const title = filterType === 'month' 
+      ? `Organizer Performance Report - ${selectedMonth || 'All Months'}` 
+      : `Event Report - ${relevantEvents[0]?.title || 'Unknown Event'}`;
+    doc.text(title, 14, 32);
+    
+    // 3. Metadata
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
+    
+    // 4. Summary Table
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.text("Performance Metrics Summary", 14, 52);
+    
+    const summaryData = metrics.map(m => [m.title, m.value]);
+    autoTable(doc, {
+      startY: 56,
+      head: [["Metric", "Value"]],
+      body: summaryData,
+      theme: 'grid',
+      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 6 }
+    });
+
+    // 5. Detailed Events Table
+    if (relevantEvents.length > 0) {
+      const finalY = (doc as any).lastAutoTable.finalY + 14;
+      doc.setFont("helvetica", "bold");
+      doc.text("Included Events Details", 14, finalY);
+
+      const eventData = relevantEvents.map(e => [
+        e.title || "Untitled",
+        e.status || "DRAFT",
+        (e.bookings || 0).toString(),
+        `Rs. ${parseFloat(e.revenue?.toString().replace(/[^0-9.-]+/g, "") || "0").toFixed(2)}`
+      ]);
+
+      autoTable(doc, {
+        startY: finalY + 4,
+        head: [["Event Title", "Status", "Bookings", "Revenue"]],
+        body: eventData,
+        theme: 'grid',
+        headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 10, cellPadding: 6 }
+      });
+    }
+    
+    doc.save(`eventsphere-report.pdf`);
+  };
 
   return (
     <SidebarLayout>
@@ -55,7 +136,10 @@ export default function OrganizerReports() {
           </div>
           
           {isFilterActive && (
-            <DynamicButton className="px-5 py-2.5 rounded-xl font-medium flex items-center gap-2">
+            <DynamicButton 
+              onClick={handleDownloadPDF}
+              className="px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 print:hidden"
+            >
               <Download className="w-4 h-4" />
               Download PDF Report
             </DynamicButton>
@@ -63,7 +147,7 @@ export default function OrganizerReports() {
         </div>
 
         {/* Filter Section */}
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm mb-8">
+        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm mb-8 print:hidden">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg">
               <Filter className="w-5 h-5" />

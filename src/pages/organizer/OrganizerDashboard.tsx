@@ -1,85 +1,80 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import SidebarLayout from '../../components/ui/SidebarLayout';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Plus, 
-  AlertTriangle, 
-  Calendar as CalendarIcon, 
-  Activity, 
-  DollarSign, 
-  Ticket, 
-  BarChart2, 
-  QrCode, 
-  Eye, 
+import {
+  Plus,
+  AlertTriangle,
+  Calendar as CalendarIcon,
+  BarChart2,
+  QrCode,
+  Eye,
   ChevronRight,
   MapPin,
   Clock,
   MoreVertical,
   CalendarDays,
   XCircle,
-  X
+  X,
+  Loader2,
 } from 'lucide-react';
-
-import api from '../../lib/api';
+import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { listEvents, postponeEvent, deleteEvent, type EventResponse } from '../../services/organizerService';
 
 export default function OrganizerDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [postponeModalOpen, setPostponeModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
-  
+  const [selectedEvent, setSelectedEvent] = useState<EventResponse | null>(null);
+
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
+  const [isPostponing, setIsPostponing] = useState(false);
   const [cancelConfirmText, setCancelConfirmText] = useState('');
-  const [myEvents, setMyEvents] = useState<any[]>([]);
+  const [myEvents, setMyEvents] = useState<EventResponse[]>([]);
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pendingFilter, setPendingFilter] = useState<'ALL' | 'PENDING'>('ALL');
+  const [pendingFilter, setPendingFilter] = useState<'ALL' | 'PENDING_APPROVAL'>('ALL');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchData = async () => {
-      try {
-        const [eventsRes, bookingsRes] = await Promise.all([
-          api.get('/api/organizer/events'),
-          api.get('/api/organizer/bookings/recent')
-        ]);
-        if (!cancelled) {
-          setMyEvents(eventsRes.data);
-          setRecentBookings(bookingsRes.data);
-        }
-      } catch (error) {
-        console.error("Dashboard fetch error:", error);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    fetchData();
-    return () => { cancelled = true; };
-  }, []);
+  const fetchDashboardData = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      // organizerId === user.id (1:1 DB mapping)
+      const events = await listEvents(user.id);
+      setMyEvents(events);
+    } catch (error) {
+      console.error('Dashboard fetch error:', error);
+      toast.error('Failed to load events.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
 
-  const displayedEvents = pendingFilter === 'PENDING' 
-    ? myEvents.filter(e => e.status === 'PENDING') 
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const displayedEvents = pendingFilter === 'PENDING_APPROVAL' 
+    ? myEvents.filter(e => e.status === 'PENDING_APPROVAL') 
     : myEvents;
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'APPROVED': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400';
-      case 'PENDING': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400';
+      case 'PUBLISHED': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400';
+      case 'PENDING_APPROVAL': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400';
       case 'REJECTED': return 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400';
       default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400';
     }
   };
 
-  const pendingCount = myEvents.filter(e => e.status === 'PENDING').length;
+  const pendingCount = myEvents.filter(e => e.status === 'PENDING_APPROVAL').length;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -104,21 +99,45 @@ export default function OrganizerDashboard() {
     setOpenDropdownId(null);
   };
 
-  const handleConfirmPostpone = () => {
-    // Implement postpone logic here
-    console.log(`Postponed ${selectedEvent?.title} to ${newDate} ${newTime}`);
-    setPostponeModalOpen(false);
-    setSelectedEvent(null);
-    setNewDate('');
-    setNewTime('');
+  const handleConfirmPostpone = async () => {
+    if (!selectedEvent || !newDate || !newTime || !user?.id) return;
+    // Combine date + time into ISO-8601 LocalDateTime expected by backend
+    const newDateTimeISO = `${newDate}T${newTime}:00`;
+    setIsPostponing(true);
+    try {
+      const updated = await postponeEvent(user.id, selectedEvent.id, newDateTimeISO);
+      // Update the event in local state so the list reflects the new date immediately
+      setMyEvents(prev =>
+        prev.map(e => (e.id === updated.id ? { ...e, eventDate: updated.eventDate } : e))
+      );
+      toast.success(`"${selectedEvent.title}" postponed to ${format(new Date(newDateTimeISO), 'MMM dd, yyyy p')}`);
+      setPostponeModalOpen(false);
+      setSelectedEvent(null);
+      setNewDate('');
+      setNewTime('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Failed to postpone event.');
+    } finally {
+      setIsPostponing(false);
+    }
   };
 
-  const handleConfirmCancel = () => {
-    if (cancelConfirmText === 'CANCEL') {
-      // Implement cancel logic here
-      console.log(`Cancelled ${selectedEvent?.title}`);
-      setCancelModalOpen(false);
-      setSelectedEvent(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleConfirmCancel = async () => {
+    if (cancelConfirmText === 'CANCEL' && selectedEvent && user?.id) {
+      setIsCancelling(true);
+      try {
+        await deleteEvent(user.id, selectedEvent.id);
+        setMyEvents(prev => prev.filter(e => e.id !== selectedEvent.id));
+        toast.success(`Event "${selectedEvent.title}" has been cancelled.`);
+        setCancelModalOpen(false);
+        setSelectedEvent(null);
+      } catch (err: any) {
+        toast.error(err.response?.data?.message ?? 'Failed to cancel event.');
+      } finally {
+        setIsCancelling(false);
+      }
     }
   };
 
@@ -161,10 +180,10 @@ export default function OrganizerDashboard() {
               </p>
             </div>
             <button 
-              onClick={() => setPendingFilter(prev => prev === 'PENDING' ? 'ALL' : 'PENDING')}
+              onClick={() => setPendingFilter(prev => prev === 'PENDING_APPROVAL' ? 'ALL' : 'PENDING_APPROVAL')}
               className="shrink-0 px-4 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-500/20 dark:hover:bg-yellow-500/30 text-yellow-800 dark:text-yellow-500 text-sm font-bold rounded-lg transition-colors"
             >
-              {pendingFilter === 'PENDING' ? 'Show All Events' : 'View Pending'}
+              {pendingFilter === 'PENDING_APPROVAL' ? 'Show All Events' : 'View Pending'}
             </button>
           </div>
         )}
@@ -175,7 +194,7 @@ export default function OrganizerDashboard() {
           {/* Left Column (70%): Your Events */}
           <div className="lg:col-span-2 space-y-6" id="your-events">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Your Events {pendingFilter === 'PENDING' ? '(Pending)' : ''}</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Your Events {pendingFilter === 'PENDING_APPROVAL' ? '(Pending)' : ''}</h2>
             </div>
             
             <div className="space-y-4">
@@ -183,19 +202,19 @@ export default function OrganizerDashboard() {
                 <div className="p-8 text-center text-slate-500">Loading events...</div>
               ) : displayedEvents.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-                  No events found. {pendingFilter === 'PENDING' ? 'You have no pending events.' : 'Create one today!'}
+                  No events found. {pendingFilter === 'PENDING_APPROVAL' ? 'You have no pending events.' : 'Create one today!'}
                 </div>
               ) : displayedEvents.map((event) => {
                 const bookings = event.bookings || 0;
                 const capacity = event.capacity || 0;
                 const fillRate = capacity ? Math.round((bookings / capacity) * 100) : 0;
-                const isApproved = event.status === 'APPROVED';
+                const isApproved = event.status === 'PUBLISHED';
 
                 return (
                   <div key={event.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row gap-5 transition-all hover:shadow-md">
                     {/* Thumbnail */}
                     <div className="w-full sm:w-40 h-32 sm:h-auto shrink-0 rounded-xl overflow-hidden relative">
-                      <img src={event.coverImage || 'https://via.placeholder.com/400x200?text=No+Image'} alt={event.title} className="w-full h-full object-cover" />
+                      <img src={event.coverImageUrl || 'https://via.placeholder.com/400x200?text=No+Image'} alt={event.title} className="w-full h-full object-cover" />
                       <div className="absolute top-2 left-2">
                         <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md backdrop-blur-md shadow-sm ${
                           isApproved ? 'bg-emerald-500/90 text-white' : 'bg-orange-500/90 text-white'
@@ -219,7 +238,7 @@ export default function OrganizerDashboard() {
                         {/* Options Dropdown */}
                         <div className="relative" ref={openDropdownId === event.id ? dropdownRef : null}>
                           <button 
-                            onClick={() => setOpenDropdownId(openDropdownId === event.id ? null : event.id)}
+                            onClick={() => setOpenDropdownId(openDropdownId === event.id ? null : (event.id as string))}
                             className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                           >
                             <MoreVertical className="w-5 h-5" />
@@ -371,7 +390,7 @@ export default function OrganizerDashboard() {
                       <div className="flex justify-between items-start mb-0.5">
                         <p className="text-sm font-bold text-slate-900 dark:text-white truncate pr-2">{booking.attendee?.fullName || 'Anonymous'}</p>
                         <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                          {booking.amountPaid === 0 ? 'Free' : `$${booking.amountPaid}`}
+                          {booking.amountPaid === 0 ? 'Free' : `Rs. ${booking.amountPaid}`}
                         </p>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate mb-1">{booking.event?.title || 'Event'}</p>
@@ -453,12 +472,13 @@ export default function OrganizerDashboard() {
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleConfirmPostpone}
-                    disabled={!newDate || !newTime}
-                    className="px-5 py-2.5 rounded-xl font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={!newDate || !newTime || isPostponing}
+                    className="px-5 py-2.5 rounded-xl font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
-                    Confirm Postpone
+                    {isPostponing && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isPostponing ? 'Postponing...' : 'Confirm Postpone'}
                   </button>
                 </div>
               </div>
@@ -516,10 +536,11 @@ export default function OrganizerDashboard() {
                   </button>
                   <button 
                     onClick={handleConfirmCancel}
-                    disabled={cancelConfirmText !== 'CANCEL'}
-                    className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={cancelConfirmText !== 'CANCEL' || isCancelling}
+                    className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
-                    Confirm Cancel
+                    {isCancelling && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isCancelling ? 'Cancelling...' : 'Confirm Cancel'}
                   </button>
                 </div>
               </div>

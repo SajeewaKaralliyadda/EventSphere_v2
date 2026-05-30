@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Upload, CheckCircle2, Loader2, Image as ImageIcon } from "lucide-react";
 import DynamicButton from "./DynamicButton";
-import api from "../../lib/api";
+import { createTenant } from "../../services/superAdminService";
 import toast from "react-hot-toast";
 
 interface OnboardTenantModalProps {
@@ -28,42 +28,21 @@ export default function OnboardTenantModal({
 
     setIsLoading(true);
     try {
-      let finalLogoUrl = "";
-      
-      // Upload to Cloudinary via backend if file selected
-      if (logoFile) {
-        const formData = new FormData();
-        formData.append("file", logoFile);
-        
-        try {
-          const uploadRes = await api.post("/api/upload/image", formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          });
-          finalLogoUrl = uploadRes.data.url;
-        } catch (uploadError: any) {
-          throw new Error("Logo upload failed: " + (uploadError.response?.data?.error || uploadError.message));
-        }
-      }
-
-      const payload = {
-        universityName: data.get("universityName") as string,
-        domain: data.get("domain") as string,
+      await createTenant({
+        universityName: data.get('universityName') as string,
+        domain: data.get('domain') as string,
         primaryColor,
-        logoUrl: finalLogoUrl,
-        adminFullName: data.get("adminFullName") as string,
-        adminDesignation: data.get("adminDesignation") as string,
-        adminEmail: data.get("adminEmail") as string,
-      };
-
-      await api.post("/api/admin/tenants", payload);
+        adminFullName: data.get('adminFullName') as string,
+        adminDesignation: data.get('adminDesignation') as string,
+        adminEmail: data.get('adminEmail') as string,
+        logo: logoFile,
+      });
       setIsSubmitted(true);
     } catch (err: any) {
       const message =
         err?.response?.data?.message ??
         err?.message ??
-        "Failed to create tenant.";
+        'Failed to create tenant.';
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -153,7 +132,7 @@ export default function OnboardTenantModal({
                           name="universityName"
                           type="text"
                           required
-                          placeholder="e.g. Stanford University"
+                          placeholder="e.g. EventSphere"
                           className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                         />
                       </div>

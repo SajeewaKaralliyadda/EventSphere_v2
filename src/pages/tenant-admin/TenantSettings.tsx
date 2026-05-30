@@ -4,10 +4,17 @@ import { Building2, Plus, Trash2, Save, MapPin, Globe, Mail } from 'lucide-react
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import DynamicButton from '../../components/ui/DynamicButton';
 import toast from 'react-hot-toast';
-import api from '../../lib/api';
+import {
+  listFaculties,
+  createFaculty,
+  deleteFaculty,
+  getCustomization,
+  updateCustomization,
+} from '../../services/tenantAdminService';
+import type { FacultyResponse } from '../../services/tenantAdminService';
 
 export default function TenantSettings() {
-  const [faculties, setFaculties] = useState<any[]>([]);
+  const [faculties, setFaculties] = useState<FacultyResponse[]>([]);
   const [newFaculty, setNewFaculty] = useState('');
   const [settings, setSettings] = useState<any>({
     name: '',
@@ -15,18 +22,22 @@ export default function TenantSettings() {
     contactEmail: '',
     address: ''
   });
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
 
   React.useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await api.get('/api/tenant-admin/settings');
+        const [customization, facultyList] = await Promise.all([
+          getCustomization(),
+          listFaculties(),
+        ]);
         setSettings({
-          ...response.data,
-          address: response.data.address || ''
+          name: (customization as any).name || '',
+          domain: (customization as any).domain || '',
+          contactEmail: (customization as any).contactEmail || '',
+          address: (customization as any).address || '',
         });
-        if (response.data.faculties) {
-          setFaculties(response.data.faculties);
-        }
+        setFaculties(facultyList);
       } catch (err) {
         toast.error('Failed to load tenant settings');
       }
@@ -34,25 +45,35 @@ export default function TenantSettings() {
     fetchSettings();
   }, []);
 
-  const handleAddFaculty = () => {
+  const handleAddFaculty = async () => {
     if (newFaculty.trim()) {
-      setFaculties([...faculties, { id: crypto.randomUUID(), name: newFaculty.trim() }]);
-      setNewFaculty('');
+      try {
+        const created = await createFaculty(newFaculty.trim());
+        setFaculties(prev => [...prev, created]);
+        setNewFaculty('');
+        toast.success(`Faculty "${created.name}" added.`);
+      } catch (err) {
+        toast.error('Failed to add faculty.');
+      }
     }
   };
 
-  const handleDeleteFaculty = (id: string | number) => {
-    setFaculties(faculties.filter(f => f.id !== id));
+  const handleDeleteFaculty = async (id: string | number) => {
+    try {
+      await deleteFaculty(String(id));
+      setFaculties(prev => prev.filter(f => f.id !== id));
+      toast.success('Faculty removed.');
+    } catch (err) {
+      toast.error('Failed to remove faculty.');
+    }
   };
 
   const handleSave = async () => {
     try {
-      const payload = {
-        ...settings,
-        faculties: faculties
-      };
-      await api.put('/api/tenant-admin/settings', payload);
+      const payload = { ...settings };
+      await updateCustomization(payload, bannerFile);
       toast.success('Settings saved successfully');
+      setBannerFile(null); // Reset after saving
     } catch (err) {
       toast.error('Failed to save settings');
     }
@@ -109,6 +130,19 @@ export default function TenantSettings() {
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input type="text" value={settings.address} onChange={e => setSettings({...settings, address: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Banner Image</label>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={e => setBannerFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+                  />
+                  {bannerFile && (
+                    <p className="text-xs text-emerald-600 mt-2">Selected: {bannerFile.name}</p>
+                  )}
                 </div>
 
                 <div className="pt-4 flex justify-end">

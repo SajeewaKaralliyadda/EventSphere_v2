@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Calendar, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { addToWishlist, removeFromWishlist } from '../../services/attendeeService';
+import { useAuth } from '../../contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 export interface EventData {
   id: string;
@@ -13,16 +16,42 @@ export interface EventData {
 }
 
 export default function EventCard({ event }: { event: EventData }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSave = (e: React.MouseEvent) => {
+  const handleSave = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating to event details
     e.stopPropagation();
-    setIsSaved(!isSaved);
-    if (!isSaved) {
-      toast.success('Event saved to wishlist!');
-    } else {
-      toast('Removed from wishlist', { icon: '💔' });
+
+    if (!user) {
+      toast('Please log in to save events', { icon: '🔒' });
+      navigate('/login');
+      return;
+    }
+    
+    // Only attendees can save to wishlist (backend enforces this via role check)
+    if (user.role !== 'ATTENDEE') {
+      toast.error('Only attendees can save events to a wishlist.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (!isSaved) {
+        await addToWishlist(event.id);
+        setIsSaved(true);
+        toast.success('Event saved to wishlist!');
+      } else {
+        await removeFromWishlist(event.id);
+        setIsSaved(false);
+        toast('Removed from wishlist', { icon: '💔' });
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Failed to update wishlist.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -43,9 +72,14 @@ export default function EventCard({ event }: { event: EventData }) {
         </div>
         <button 
           onClick={handleSave}
-          className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm hover:scale-110 transition-transform z-10"
+          disabled={isLoading}
+          className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm hover:scale-110 transition-transform z-10 disabled:opacity-70"
         >
-          <Heart className={`w-5 h-5 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-slate-600 dark:text-slate-300'}`} />
+          {isLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+          ) : (
+            <Heart className={`w-5 h-5 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-slate-600 dark:text-slate-300'}`} />
+          )}
         </button>
       </div>
       <div className="p-6 flex-1 flex flex-col">
@@ -57,7 +91,7 @@ export default function EventCard({ event }: { event: EventData }) {
           {event.date}
         </div>
         <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-          <span className="font-bold text-xl">{event.price === 0 ? 'Free' : `$${event.price}`}</span>
+          <span className="font-bold text-xl">{event.price === 0 ? 'Free' : `Rs. ${event.price}`}</span>
           <span className="text-sm font-bold text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform">
             Get Tickets &rarr;
           </span>

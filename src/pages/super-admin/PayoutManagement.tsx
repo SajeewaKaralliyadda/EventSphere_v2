@@ -14,19 +14,12 @@ import {
 } from 'lucide-react';
 import DynamicButton from '../../components/ui/DynamicButton';
 import SidebarLayout from '../../components/ui/SidebarLayout';
-import api from '../../lib/api';
+import { listPayouts, markPayoutAsPaid } from '../../services/superAdminService';
+import type { PayoutResponse } from '../../services/superAdminService';
 import toast from 'react-hot-toast';
 
-interface Payout {
-  id: string;
-  tenant: string;
-  totalSales: number;
-  feePercentage: number;
-  netPayout: number;
-  status: 'PENDING' | 'PAID';
-  date: string;
-  transactionRef?: string;
-}
+// Re-use the typed interface from the service layer
+type Payout = PayoutResponse;
 
 export default function PayoutManagement() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -40,7 +33,7 @@ export default function PayoutManagement() {
   const fetchPayouts = async () => {
     setIsLoading(true);
     try {
-      const { data } = await api.get<Payout[]>('/api/admin/payouts');
+      const data = await listPayouts();
       setPayouts(data);
     } catch (err: any) {
       toast.error('Failed to load payout records.');
@@ -78,12 +71,9 @@ export default function PayoutManagement() {
     if (!selectedPayout || !transactionRef) return;
     setIsSubmitting(true);
     try {
-      const { data } = await api.post<Payout>(
-        `/api/admin/payouts/${selectedPayout.id}/mark-paid`,
-        { transactionRef }
-      );
+      const updated = await markPayoutAsPaid(selectedPayout.id, transactionRef);
       setPayouts((prev) =>
-        prev.map((p) => (p.id === data.id ? data : p))
+        prev.map((p) => (p.id === updated.id ? updated : p))
       );
       toast.success('Payout marked as paid!');
       setIsModalOpen(false);
