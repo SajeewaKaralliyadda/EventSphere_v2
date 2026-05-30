@@ -10,7 +10,7 @@ export interface Tenant {
 }
 
 export const MOCK_TENANTS: Tenant[] = [
-  { id: 'uuid-1234', name: 'Stanford University', domain: 'stanford.eventsphere.com', primaryColor: '#8b5cf6', logoUrl: '' },
+  { id: 'uuid-1234', name: 'EventSphere', domain: 'eventsphere.com', primaryColor: '#8b5cf6', logoUrl: '' },
   { id: 'uuid-5678', name: 'MIT', domain: 'mit.eventsphere.com', primaryColor: '#ef4444', logoUrl: '' },
   { id: 'uuid-9012', name: 'Harvard University', domain: 'harvard.eventsphere.com', primaryColor: '#b91c1c', logoUrl: '' },
 ];

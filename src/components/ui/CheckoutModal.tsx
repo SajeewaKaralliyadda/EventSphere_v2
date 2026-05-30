@@ -93,12 +93,12 @@ export default function CheckoutModal({ isOpen, onClose, event, tickets, totalPr
                   {selectedTiers.map((tier: any) => (
                     <div key={tier.id} className="flex justify-between items-center text-sm">
                       <span className="font-medium">{tickets[tier.id]}x {tier.name}</span>
-                      <span>{tier.price === 0 ? 'Free' : `$${tier.price * tickets[tier.id]}`}</span>
+                      <span>{tier.price === 0 ? 'Free' : `Rs. ${tier.price * tickets[tier.id]}`}</span>
                     </div>
                   ))}
                   <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center font-bold text-lg">
                     <span>Total</span>
-                    <span>${totalPrice}</span>
+                    <span>Rs. {totalPrice}</span>
                   </div>
                 </div>
 
@@ -129,7 +129,7 @@ export default function CheckoutModal({ isOpen, onClose, event, tickets, totalPr
                     Processing...
                   </>
                 ) : (
-                  `Pay $${totalPrice}`
+                  `Pay Rs. ${totalPrice}`
                 )}
               </DynamicButton>
             </div>

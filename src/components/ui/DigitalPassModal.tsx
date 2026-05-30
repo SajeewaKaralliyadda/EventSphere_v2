@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, QrCode, Calendar, MapPin, Clock, ShieldCheck, User, AlertTriangle } from 'lucide-react';
 import DynamicButton from './DynamicButton';
+import QRCode from 'react-qr-code';
 
 interface DigitalPassModalProps {
   isOpen: boolean;
@@ -91,15 +92,13 @@ export default function DigitalPassModal({ isOpen, onClose, ticket }: DigitalPas
           {/* Bottom Section: QR Code */}
           <div className="bg-white dark:bg-slate-900 rounded-b-3xl p-6 flex flex-col items-center justify-center relative">
             <div className="relative w-48 h-48 mb-4 flex items-center justify-center">
-              {/* Fake QR Code Pattern */}
-              <div className={`absolute inset-0 grid grid-cols-6 grid-rows-6 gap-1 p-2 bg-white rounded-xl transition-all duration-500 ${!isQrRevealed ? 'blur-md scale-95 opacity-50' : 'blur-0 scale-100 opacity-100'}`}>
-                {Array.from({ length: 36 }).map((_, i) => (
-                  <div key={i} className={`bg-slate-900 rounded-sm ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'}`} />
-                ))}
-                {/* Corner markers */}
-                <div className="absolute top-2 left-2 w-8 h-8 border-4 border-slate-900 rounded-sm" />
-                <div className="absolute top-2 right-2 w-8 h-8 border-4 border-slate-900 rounded-sm" />
-                <div className="absolute bottom-2 left-2 w-8 h-8 border-4 border-slate-900 rounded-sm" />
+              {/* Real QR Code */}
+              <div className={`absolute inset-0 bg-white rounded-xl p-4 transition-all duration-500 shadow-inner flex items-center justify-center ${!isQrRevealed ? 'blur-md scale-95 opacity-50' : 'blur-0 scale-100 opacity-100'}`}>
+                <QRCode 
+                  value={`TICKET:${ticket.id}`} 
+                  size={160}
+                  level="H"
+                />
               </div>
 
               {!isQrRevealed && (

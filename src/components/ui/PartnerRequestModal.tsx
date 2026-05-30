@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, CheckCircle2 } from 'lucide-react';
+import { X, CheckCircle2, Loader2 } from 'lucide-react';
 import DynamicButton from './DynamicButton';
+import { submitPartnershipRequest } from '../../services/publicService';
 
 interface PartnerRequestModalProps {
   isOpen: boolean;
@@ -10,17 +11,49 @@ interface PartnerRequestModalProps {
 
 export default function PartnerRequestModal({ isOpen, onClose }: PartnerRequestModalProps) {
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [formData, setFormData] = useState({
+    universityName: '',
+    representativeName: '',
+    designation: '',
+    officialEmail: '',
+    phoneNumber: '',
+    message: ''
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate API call
-    setTimeout(() => {
+    setError(null);
+    setIsSubmitting(true);
+    
+    try {
+      await submitPartnershipRequest(formData);
       setIsSubmitted(true);
-    }, 800);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to submit partnership request. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
     setIsSubmitted(false);
+    setError(null);
+    setFormData({
+      universityName: '',
+      representativeName: '',
+      designation: '',
+      officialEmail: '',
+      phoneNumber: '',
+      message: ''
+    });
     onClose();
   };
 
@@ -68,13 +101,21 @@ export default function PartnerRequestModal({ isOpen, onClose }: PartnerRequestM
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {error && (
+                    <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm mb-4">
+                      {error}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium">University Name <span className="text-red-500">*</span></label>
                       <input 
                         type="text" 
+                        name="universityName"
+                        value={formData.universityName}
+                        onChange={handleChange}
                         required 
-                        placeholder="e.g. Stanford University"
+                        placeholder="e.g. EventSphere"
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                       />
                     </div>
@@ -82,6 +123,9 @@ export default function PartnerRequestModal({ isOpen, onClose }: PartnerRequestM
                       <label className="block text-sm font-medium">Official Representative Name <span className="text-red-500">*</span></label>
                       <input 
                         type="text" 
+                        name="representativeName"
+                        value={formData.representativeName}
+                        onChange={handleChange}
                         required 
                         placeholder="e.g. Dr. Jane Doe"
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
@@ -91,6 +135,9 @@ export default function PartnerRequestModal({ isOpen, onClose }: PartnerRequestM
                       <label className="block text-sm font-medium">Designation <span className="text-red-500">*</span></label>
                       <input 
                         type="text" 
+                        name="designation"
+                        value={formData.designation}
+                        onChange={handleChange}
                         required 
                         placeholder="e.g. Director of Student Affairs"
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
@@ -100,18 +147,24 @@ export default function PartnerRequestModal({ isOpen, onClose }: PartnerRequestM
                       <label className="block text-sm font-medium">Official Email <span className="text-red-500">*</span></label>
                       <input 
                         type="email" 
+                        name="officialEmail"
+                        value={formData.officialEmail}
+                        onChange={handleChange}
                         required 
-                        pattern=".*(\.edu|\.ac\.lk)$"
-                        title="Must be a valid .edu or .ac.lk email address"
+                        pattern=".*(\.ac\.lk|\.edu|\.edu\.lk|\.lk)$"
+                        title="Must be a valid institutional email address (e.g., .ac.lk, .edu.lk, .edu, or .lk)"
                         placeholder="e.g. jane.doe@stanford.edu"
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                       />
-                      <p className="text-xs text-slate-500">Must be a .edu or .ac.lk address</p>
+                      <p className="text-xs text-slate-500">Must be a valid institutional address (.ac.lk, .edu, etc.)</p>
                     </div>
                     <div className="space-y-2 sm:col-span-2">
                       <label className="block text-sm font-medium">Phone Number <span className="text-red-500">*</span></label>
                       <input 
                         type="tel" 
+                        name="phoneNumber"
+                        value={formData.phoneNumber}
+                        onChange={handleChange}
                         required 
                         placeholder="+1 (555) 000-0000"
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
@@ -121,6 +174,9 @@ export default function PartnerRequestModal({ isOpen, onClose }: PartnerRequestM
                       <label className="block text-sm font-medium">Message (Optional)</label>
                       <textarea 
                         rows={4}
+                        name="message"
+                        value={formData.message}
+                        onChange={handleChange}
                         placeholder="Tell us a bit about your university's event management needs..."
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none text-sm"
                       />
@@ -131,12 +187,20 @@ export default function PartnerRequestModal({ isOpen, onClose }: PartnerRequestM
                     <button 
                       type="button"
                       onClick={handleClose}
-                      className="px-6 py-3 rounded-xl font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      disabled={isSubmitting}
+                      className="px-6 py-3 rounded-xl font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                     >
                       Cancel
                     </button>
-                    <DynamicButton type="submit" className="px-8 py-3">
-                      Send Partnership Request
+                    <DynamicButton type="submit" disabled={isSubmitting} className="px-8 py-3 flex items-center justify-center gap-2">
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        'Send Partnership Request'
+                      )}
                     </DynamicButton>
                   </div>
                 </form>

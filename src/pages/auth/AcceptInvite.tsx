@@ -5,6 +5,7 @@ import DynamicButton from "../../components/ui/DynamicButton";
 import { supabase } from "../../lib/supabase";
 import api from "../../lib/api";
 import { useAuth, Role } from "../../contexts/AuthContext";
+import logo from "../../assets/logo.png";
 
 const inputClass =
   "w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all";
@@ -183,8 +184,8 @@ export default function AcceptInvite() {
 
         <div className="relative z-10 w-full max-w-lg">
           <Link to="/" className="inline-flex items-center gap-2 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center p-1">
+              <img src={logo} alt="EventSphere Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">
               EventSphere

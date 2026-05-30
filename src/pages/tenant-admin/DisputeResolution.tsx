@@ -2,26 +2,26 @@ import React, { useState } from 'react';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import { ShieldAlert, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  listDisputes,
+  updateDisputeStatus,
+  sendDisputeWarning,
+  suspendDisputeOrganizer,
+} from '../../services/tenantAdminService';
+import type { DisputeResponse } from '../../services/tenantAdminService';
 
-import api from '../../lib/api';
-
-interface Dispute {
-  id: string;
-  organizer: string;
-  event: string;
-  reason: string;
-  status: 'Open' | 'Resolved' | 'Suspended';
-  date: string;
-}
+// Re-use the typed interface from the service layer
+type Dispute = DisputeResponse;
 
 export default function DisputeResolution() {
   const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [warningIds, setWarningIds] = useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     const fetchDisputes = async () => {
       try {
-        const response = await api.get('/api/tenant-admin/disputes');
-        setDisputes(response.data);
+        const data = await listDisputes();
+        setDisputes(data);
       } catch (err) {
         toast.error('Failed to fetch disputes');
       }
@@ -30,28 +30,31 @@ export default function DisputeResolution() {
   }, []);
 
   const handleSuspend = async (id: string, organizer: string) => {
-    try {
-      await api.post(`/api/tenant-admin/disputes/${id}/suspend`);
-      setDisputes(disputes.map(d => d.id === id ? { ...d, status: 'Suspended' } : d));
-      toast.success(`Account for ${organizer} has been suspended.`);
-    } catch (err) {
-      toast.error('Failed to suspend account.');
-    }
+    toast.error('Suspension feature coming soon');
   };
 
   const handleWarn = async (id: string, organizer: string) => {
+    setWarningIds(prev => new Set(prev).add(id));
     try {
-      await api.post(`/api/tenant-admin/disputes/${id}/warn`);
+      await sendDisputeWarning(id);
       toast.success(`Warning sent to ${organizer}.`);
     } catch (err) {
       toast.error('Failed to send warning.');
+    } finally {
+      setWarningIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
-      await api.put(`/api/tenant-admin/disputes/${id}/status`, { status: newStatus });
-      setDisputes(disputes.map(d => d.id === id ? { ...d, status: newStatus as any } : d));
+      // Map to uppercase for backend consistency if needed, e.g. RESOLVED
+      const statusToUpdate = newStatus === 'Resolved' ? 'RESOLVED' : newStatus;
+      const updated = await updateDisputeStatus(id, statusToUpdate);
+      setDisputes(disputes.map(d => d.id === id ? updated : d));
       toast.success('Dispute status updated.');
     } catch (err) {
       toast.error('Failed to update status.');
@@ -116,8 +119,12 @@ export default function DisputeResolution() {
                           <>
                             <button 
                               onClick={() => handleWarn(dispute.id, dispute.organizer)}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold rounded-lg transition-colors"
+                              disabled={warningIds.has(dispute.id)}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
                             >
+                              {warningIds.has(dispute.id) ? (
+                                <span className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+                              ) : null}
                               Send Warning
                             </button>
                             <button 

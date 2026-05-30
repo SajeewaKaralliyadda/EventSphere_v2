@@ -27,7 +27,7 @@ export default function AttendeeDashboard() {
               <CalendarIcon className="w-5 h-5" />
             </button>
           </Link>
-          <Link to="/">
+          <Link to="/events">
             <DynamicButton variant="outline" className="gap-2">
               Browse Events
             </DynamicButton>

@@ -5,6 +5,7 @@ import DynamicButton from '../../components/ui/DynamicButton';
 import { Globe, Building2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import api from '../../lib/api';
+import logo from '../../assets/logo.png';
 
 export default function TenantAdminSetup() {
   const { demoLoginAs } = useAuth();
@@ -108,8 +109,8 @@ export default function TenantAdminSetup() {
         
         <div className="relative z-10 w-full max-w-lg">
           <Link to="/" className="inline-flex items-center gap-2 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center p-1">
+              <img src={logo} alt="EventSphere Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">EventSphere</span>
           </Link>

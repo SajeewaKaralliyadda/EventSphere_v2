@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import { Image as ImageIcon, Palette, Save, Type } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-import api from '../../lib/api';
+import { getCustomization, updateCustomization } from '../../services/tenantAdminService';
 
 export default function TenantCustomizer() {
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome to the University Events Portal');
@@ -12,12 +11,12 @@ export default function TenantCustomizer() {
   const [bannerImageUrl, setBannerImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   React.useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await api.get('/api/tenant-admin/settings');
-        const settings = response.data;
+        const settings = await getCustomization();
         if (settings.welcomeMessage) setWelcomeMessage(settings.welcomeMessage);
         if (settings.primaryColor) setPrimaryColor(settings.primaryColor);
         if (settings.secondaryColor) setSecondaryColor(settings.secondaryColor);
@@ -31,29 +30,36 @@ export default function TenantCustomizer() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    
+    const payload = {
+      primaryColor: primaryColor,
+      secondaryColor: secondaryColor,
+      welcomeMessage: welcomeMessage
+    };
+
     try {
-      const resp = await api.get('/api/tenant-admin/settings');
-      const payload = { ...resp.data, welcomeMessage, primaryColor, secondaryColor, bannerImageUrl };
-      await api.put('/api/tenant-admin/settings', payload);
-      toast.success('Portal customization saved successfully!');
-    } catch (err) {
-      toast.error('Failed to save customization');
+      await updateCustomization(payload, undefined);
+      toast.success('Settings updated successfully!');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast.error('Failed to save settings. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const formData = new FormData();
-      formData.append('file', file);
-
       try {
         setIsUploading(true);
-        const res = await api.post('/api/upload/image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        setBannerImageUrl(res.data.url);
-        toast.success('Image uploaded!');
+        const updated = await updateCustomization(
+          { welcomeMessage, primaryColor, secondaryColor },
+          file
+        );
+        if (updated.bannerImageUrl) setBannerImageUrl(updated.bannerImageUrl);
+        toast.success('Banner image uploaded!');
       } catch (err) {
         toast.error('Image upload failed');
       } finally {

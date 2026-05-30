@@ -19,11 +19,9 @@ export default function ProfileSettings() {
     const data = new FormData(form);
     const fullName = data.get('fullName') as string;
     const phone = data.get('phone') as string;
-    const address = data.get('address') as string;
-
     setIsSaving(true);
     try {
-      await api.put('/api/identity/users/me', { fullName, phone, address });
+      await api.put('/api/identity/users/me', { fullName, phone });
       await refreshProfile();
       setIsSaved(true);
       toast.success('Profile saved!');
@@ -129,6 +127,7 @@ export default function ProfileSettings() {
                       <div>
                         <button
                           type="button"
+                          onClick={() => toast('Avatar upload coming soon!', { icon: '🚧' })}
                           className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-sm font-medium transition-colors mb-2"
                         >
                           <Upload className="w-4 h-4" /> Upload New Avatar
@@ -176,15 +175,7 @@ export default function ProfileSettings() {
                           className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none text-slate-500 cursor-not-allowed text-sm"
                         />
                       </div>
-                      <div className="space-y-2 sm:col-span-2">
-                        <label className="block text-sm font-medium">Address</label>
-                        <textarea
-                          name="address"
-                          rows={3}
-                          placeholder="Your address..."
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none text-sm"
-                        />
-                      </div>
+
                     </div>
 
                     <div className="pt-4 flex justify-end">

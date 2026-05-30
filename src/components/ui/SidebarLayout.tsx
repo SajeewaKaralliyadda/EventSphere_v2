@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import GlobalNavbar from './GlobalNavbar';
-import { LayoutDashboard, Calendar, Users, Settings, Ticket, BarChart3, ChevronLeft, ChevronRight, Tag, ListChecks, UserPlus, Palette, ShieldAlert, Megaphone, DollarSign, Mail } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, Settings, Ticket, BarChart3, ChevronLeft, ChevronRight, Tag, ListChecks, UserPlus, Palette, ShieldAlert, Megaphone, DollarSign, Mail, Building2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -34,6 +34,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
         { name: 'Payouts', icon: DollarSign, path: '/super-admin/payouts' },
         { name: 'Announcements', icon: Megaphone, path: '/super-admin/announcements' },
         { name: 'Email Campaigns', icon: Mail, path: '/super-admin/emails' },
+        { name: 'Partnership Requests', icon: Building2, path: '/super-admin/partnerships' },
         { name: 'Settings', icon: Settings, path: '/settings' },
       ];
     }
