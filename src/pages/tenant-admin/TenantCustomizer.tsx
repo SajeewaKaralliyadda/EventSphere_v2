@@ -2,15 +2,71 @@ import React, { useState } from 'react';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import { Image as ImageIcon, Palette, Save, Type } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getCustomization, updateCustomization } from '../../services/tenantAdminService';
 
 export default function TenantCustomizer() {
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome to the University Events Portal');
   const [primaryColor, setPrimaryColor] = useState('#3b82f6');
   const [secondaryColor, setSecondaryColor] = useState('#1e40af');
+  const [bannerImageUrl, setBannerImageUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await getCustomization();
+        if (settings.welcomeMessage) setWelcomeMessage(settings.welcomeMessage);
+        if (settings.primaryColor) setPrimaryColor(settings.primaryColor);
+        if (settings.secondaryColor) setSecondaryColor(settings.secondaryColor);
+        if (settings.bannerImageUrl) setBannerImageUrl(settings.bannerImageUrl);
+      } catch (err) {
+        toast.error('Failed to load settings');
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Portal customization saved successfully!');
+    setIsSaving(true);
+    
+    const payload = {
+      primaryColor: primaryColor,
+      secondaryColor: secondaryColor,
+      welcomeMessage: welcomeMessage
+    };
+
+    try {
+      await updateCustomization(payload, undefined);
+      toast.success('Settings updated successfully!');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast.error('Failed to save settings. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      try {
+        setIsUploading(true);
+        const updated = await updateCustomization(
+          { welcomeMessage, primaryColor, secondaryColor },
+          file
+        );
+        if (updated.bannerImageUrl) setBannerImageUrl(updated.bannerImageUrl);
+        toast.success('Banner image uploaded!');
+      } catch (err) {
+        toast.error('Image upload failed');
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    }
   };
 
   return (
@@ -46,12 +102,40 @@ export default function TenantCustomizer() {
               <ImageIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               Main Banner Image
             </h2>
-            <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
-              <div className="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ImageIcon className="w-8 h-8" />
-              </div>
-              <p className="font-medium text-slate-900 dark:text-white mb-1">Click to upload banner image</p>
-              <p className="text-sm text-slate-500">PNG, JPG or WEBP (Recommended 1920x400px)</p>
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer relative overflow-hidden h-48 flex flex-col items-center justify-center group"
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+              
+              {isUploading ? (
+                <div className="flex flex-col items-center text-blue-600 dark:text-blue-400">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                  <p className="font-medium">Uploading...</p>
+                </div>
+              ) : bannerImageUrl ? (
+                <>
+                  <img src={bannerImageUrl} alt="Banner Preview" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+                  <div className="relative z-10 bg-black/60 text-white px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Change Image
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ImageIcon className="w-8 h-8" />
+                  </div>
+                  <p className="font-medium text-slate-900 dark:text-white mb-1">Click to upload banner image</p>
+                  <p className="text-sm text-slate-500">PNG, JPG or WEBP (Recommended 1920x400px)</p>
+                </>
+              )}
             </div>
           </div>
 

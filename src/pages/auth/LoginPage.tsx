@@ -3,16 +3,18 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import DynamicButton from "../../components/ui/DynamicButton";
 import { Calendar, Users, Ticket, Globe, AlertCircle } from "lucide-react";
+import toast from "react-hot-toast";
+import logo from "../../assets/logo.png";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, resetPassword } = useAuth();
   const navigate = useNavigate();
 
-  // අලුතින් State Variables ටික ඇඩ් කරා
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,11 +56,34 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error("Login Error:", err);
-      setError(
-        err.message || "Failed to sign in. Please check your credentials.",
-      );
+      // Translate Supabase AuthApiError (400) into a friendly message
+      const isInvalidCreds =
+        err?.status === 400 ||
+        err?.message?.toLowerCase().includes("invalid login credentials") ||
+        err?.message?.toLowerCase().includes("invalid email or password");
+      const friendly = isInvalidCreds
+        ? "Invalid email or password. Please try again."
+        : (err?.message ?? "Failed to sign in. Please check your credentials.");
+      setError(friendly);
+      toast.error(friendly);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast.error("Please enter your email address first, then click Forgot password.");
+      return;
+    }
+    setForgotPasswordLoading(true);
+    try {
+      await resetPassword(email.trim());
+      toast.success("Password reset email sent! Check your inbox.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to send reset email. Please try again.");
+    } finally {
+      setForgotPasswordLoading(false);
     }
   };
 
@@ -70,8 +95,8 @@ export default function LoginPage() {
 
         <div className="relative z-10 w-full max-w-lg">
           <Link to="/" className="inline-flex items-center gap-2 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center p-1">
+              <img src={logo} alt="EventSphere Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">
               EventSphere
@@ -177,9 +202,11 @@ export default function LoginPage() {
               <div className="text-sm">
                 <button
                   type="button"
-                  className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                  onClick={handleForgotPassword}
+                  disabled={forgotPasswordLoading}
+                  className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Forgot password?
+                  {forgotPasswordLoading ? "Sending…" : "Forgot password?"}
                 </button>
               </div>
             </div>

@@ -3,25 +3,80 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Building2, Plus, Trash2, Save, MapPin, Globe, Mail } from 'lucide-react';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import DynamicButton from '../../components/ui/DynamicButton';
+import toast from 'react-hot-toast';
+import {
+  listFaculties,
+  createFaculty,
+  deleteFaculty,
+  getCustomization,
+  updateCustomization,
+} from '../../services/tenantAdminService';
+import type { FacultyResponse } from '../../services/tenantAdminService';
 
 export default function TenantSettings() {
-  const [faculties, setFaculties] = useState([
-    { id: 1, name: 'Engineering' },
-    { id: 2, name: 'Science' },
-    { id: 3, name: 'Arts' },
-    { id: 4, name: 'Business' },
-  ]);
+  const [faculties, setFaculties] = useState<FacultyResponse[]>([]);
   const [newFaculty, setNewFaculty] = useState('');
+  const [settings, setSettings] = useState<any>({
+    name: '',
+    domain: '',
+    contactEmail: '',
+    address: ''
+  });
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
 
-  const handleAddFaculty = () => {
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const [customization, facultyList] = await Promise.all([
+          getCustomization(),
+          listFaculties(),
+        ]);
+        setSettings({
+          name: (customization as any).name || '',
+          domain: (customization as any).domain || '',
+          contactEmail: (customization as any).contactEmail || '',
+          address: (customization as any).address || '',
+        });
+        setFaculties(facultyList);
+      } catch (err) {
+        toast.error('Failed to load tenant settings');
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleAddFaculty = async () => {
     if (newFaculty.trim()) {
-      setFaculties([...faculties, { id: Date.now(), name: newFaculty.trim() }]);
-      setNewFaculty('');
+      try {
+        const created = await createFaculty(newFaculty.trim());
+        setFaculties(prev => [...prev, created]);
+        setNewFaculty('');
+        toast.success(`Faculty "${created.name}" added.`);
+      } catch (err) {
+        toast.error('Failed to add faculty.');
+      }
     }
   };
 
-  const handleDeleteFaculty = (id: number) => {
-    setFaculties(faculties.filter(f => f.id !== id));
+  const handleDeleteFaculty = async (id: string | number) => {
+    try {
+      await deleteFaculty(String(id));
+      setFaculties(prev => prev.filter(f => f.id !== id));
+      toast.success('Faculty removed.');
+    } catch (err) {
+      toast.error('Failed to remove faculty.');
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      const payload = { ...settings };
+      await updateCustomization(payload, bannerFile);
+      toast.success('Settings saved successfully');
+      setBannerFile(null); // Reset after saving
+    } catch (err) {
+      toast.error('Failed to save settings');
+    }
   };
 
   return (
@@ -49,7 +104,7 @@ export default function TenantSettings() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium mb-2">Institution Name</label>
-                  <input type="text" defaultValue="Global Tech University" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                  <input type="text" value={settings.name} onChange={e => setSettings({...settings, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -57,14 +112,14 @@ export default function TenantSettings() {
                     <label className="block text-sm font-medium mb-2">Domain</label>
                     <div className="relative">
                       <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input type="text" defaultValue="gtu.edu" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                      <input type="text" value={settings.domain} onChange={e => setSettings({...settings, domain: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">Contact Email</label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input type="email" defaultValue="admin@gtu.edu" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                      <input type="email" value={settings.contactEmail} onChange={e => setSettings({...settings, contactEmail: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                     </div>
                   </div>
                 </div>
@@ -73,12 +128,25 @@ export default function TenantSettings() {
                   <label className="block text-sm font-medium mb-2">Address</label>
                   <div className="relative">
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="text" defaultValue="123 University Ave, Tech City" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                    <input type="text" value={settings.address} onChange={e => setSettings({...settings, address: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium mb-2">Banner Image</label>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={e => setBannerFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+                  />
+                  {bannerFile && (
+                    <p className="text-xs text-emerald-600 mt-2">Selected: {bannerFile.name}</p>
+                  )}
+                </div>
+
                 <div className="pt-4 flex justify-end">
-                  <DynamicButton className="px-6 py-2.5 rounded-xl font-medium flex items-center gap-2">
+                  <DynamicButton onClick={handleSave} className="px-6 py-2.5 rounded-xl font-medium flex items-center gap-2">
                     <Save className="w-4 h-4" />
                     Save Changes
                   </DynamicButton>

@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Globe, Clock, ShieldAlert, LogOut } from "lucide-react";
 import DynamicButton from "../../components/ui/DynamicButton";
 import { useAuth, Role } from "../../contexts/AuthContext";
+import logo from "../../assets/logo.png";
 
 function dashboardPathForRole(role: Role): string {
   if (role === "SUPER_ADMIN") return "/super-admin/dashboard";
@@ -56,8 +57,8 @@ export default function PendingApproval() {
 
         <div className="relative z-10 w-full max-w-lg text-center lg:text-left">
           <Link to="/" className="inline-flex items-center gap-2 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center p-1">
+              <img src={logo} alt="EventSphere Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">
               EventSphere

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScanLine, CheckCircle2, XCircle, ArrowLeft, Flashlight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { validateTicket } from '../../services/organizerService';
 
 export default function QRScannerMobile() {
   const navigate = useNavigate();
@@ -10,28 +12,30 @@ export default function QRScannerMobile() {
   const [activeTab, setActiveTab] = useState<'scan' | 'manual'>('scan');
   const [manualTicketId, setManualTicketId] = useState('');
 
-  // Simulate scanning process
-  const simulateScan = (isValid: boolean) => {
-    setScanStatus(isValid ? 'valid' : 'invalid');
-    if (isValid) {
+  const handleQRScan = async (ticketId: string) => {
+    if (scanStatus !== 'scanning') return; // Prevent multiple scans
+    try {
+      const data = await validateTicket(ticketId);
+      setScanStatus('valid');
       setScannedData({
-        name: 'Demo Attendee',
-        ticketId: 'TKT-8492-A',
-        tier: 'VIP Pass',
+        name: data.attendeeName || data.name || 'Attendee',
+        ticketId: ticketId,
+        tier: data.ticketTierName || data.tier || 'Valid Pass',
         timestamp: new Date().toLocaleTimeString()
       });
-    } else {
+    } catch (error: any) {
+      setScanStatus('invalid');
       setScannedData({
-        reason: 'Ticket already used or invalid QR code.',
+        reason: error.response?.data?.message || 'Ticket already used or invalid QR code.',
         timestamp: new Date().toLocaleTimeString()
       });
     }
 
-    // Auto reset after 3 seconds
+    // Auto reset after 5 seconds
     setTimeout(() => {
       setScanStatus('scanning');
       setScannedData(null);
-    }, 3000);
+    }, 5000);
   };
 
   return (
@@ -80,13 +84,23 @@ export default function QRScannerMobile() {
               <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-white rounded-bl-2xl" />
               <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-white rounded-br-2xl" />
               
-              {/* Animated Scan Line */}
               {scanStatus === 'scanning' && (
-                <motion.div 
-                  animate={{ y: [0, 250, 0] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                  className="absolute top-0 left-0 right-0 h-1 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]"
-                />
+                <div className="absolute inset-0 z-0 overflow-hidden rounded-xl">
+                  <Scanner 
+                    formats={['qr_code']}
+                    onScan={(result) => {
+                      if (result && result.length > 0) {
+                        handleQRScan(result[0].rawValue);
+                      }
+                    }}
+                    styles={{ container: { width: '100%', height: '100%' } }}
+                  />
+                  <motion.div 
+                    animate={{ y: [0, 250, 0] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                    className="absolute top-0 left-0 right-0 h-1 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)] z-10"
+                  />
+                </div>
               )}
 
               {/* Status Overlay inside viewfinder */}
@@ -126,8 +140,7 @@ export default function QRScannerMobile() {
             <button 
               onClick={() => {
                 if (manualTicketId) {
-                  // Dummy logic: valid if length > 5
-                  simulateScan(manualTicketId.length > 5);
+                  handleQRScan(manualTicketId);
                   setManualTicketId('');
                 }
               }}
@@ -207,26 +220,7 @@ export default function QRScannerMobile() {
           </AnimatePresence>
         </div>
 
-        {/* Simulation Controls (For Demo Purposes) */}
-        <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-center text-slate-400 mb-3 uppercase tracking-wider font-bold">Simulate Scan</p>
-          <div className="grid grid-cols-2 gap-4">
-            <button 
-              onClick={() => simulateScan(true)}
-              disabled={scanStatus !== 'scanning'}
-              className="py-3 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 rounded-xl font-bold disabled:opacity-50 transition-colors"
-            >
-              Simulate Valid
-            </button>
-            <button 
-              onClick={() => simulateScan(false)}
-              disabled={scanStatus !== 'scanning'}
-              className="py-3 bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 rounded-xl font-bold disabled:opacity-50 transition-colors"
-            >
-              Simulate Invalid
-            </button>
-          </div>
-        </div>
+        {/* Removed Simulation Controls */}
       </div>
     </div>
   );

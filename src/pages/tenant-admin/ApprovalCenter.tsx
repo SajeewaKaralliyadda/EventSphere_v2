@@ -1,52 +1,80 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Check, X, Search, Filter, AlertCircle, Building2, Calendar as CalendarIcon, Eye, Download } from 'lucide-react';
-import toast from 'react-hot-toast';
-import SidebarLayout from '../../components/ui/SidebarLayout';
-
-// Mock Data
-const MOCK_ORGANIZER_REQUESTS = [
-  { id: 1, name: 'Alex Johnson', email: 'alex.j@student.gtu.edu', phone: '+1 (555) 123-4567', clubName: 'Computer Science Society', description: 'We are a student-led organization dedicated to fostering innovation and collaboration among tech enthusiasts on campus.', date: '2026-04-01' },
-  { id: 2, name: 'Sarah Williams', email: 'sarah.w@student.gtu.edu', phone: '+1 (555) 987-6543', clubName: 'Debate Club', description: 'Fostering critical thinking and public speaking skills through competitive debate.', date: '2026-03-30' },
-  { id: 3, name: 'Michael Chen', email: 'm.chen@student.gtu.edu', phone: '+1 (555) 456-7890', clubName: 'Robotics Team', description: 'Building autonomous robots for national competitions.', date: '2026-03-28' },
-];
-
-const MOCK_EVENT_REQUESTS = [
-  { id: 1, title: 'Annual Tech Symposium 2026', organizer: 'Computer Science Society', category: 'Technology', date: '2026-05-15', time: '09:00 AM', venue: 'Main Campus Auditorium', capacity: 500, audience: 'University Students Only', status: 'Pending' },
-  { id: 2, title: 'Spring Debate Championship', organizer: 'Debate Club', category: 'Academic', date: '2026-04-20', time: '10:00 AM', venue: 'Student Union Hall', capacity: 200, audience: 'Open to Public', status: 'Pending' },
-  { id: 3, title: 'RoboWars Regional Qualifiers', organizer: 'Robotics Team', category: 'Competition', date: '2026-06-10', time: '08:00 AM', venue: 'Engineering Building Plaza', capacity: 350, audience: 'University Students Only', status: 'Pending' },
-];
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Check,
+  X,
+  Search,
+  Filter,
+  AlertCircle,
+  Building2,
+  Calendar as CalendarIcon,
+  Eye,
+  Download,
+  FileText,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import SidebarLayout from "../../components/ui/SidebarLayout";
+import {
+  listOrganizerApprovals,
+  listEventApprovals,
+  decideOrganizerApproval,
+  decideEventApproval,
+} from "../../services/tenantAdminService";
 
 export default function ApprovalCenter() {
-  const [activeTab, setActiveTab] = useState<'organizers' | 'events'>('organizers');
-  
+  const [activeTab, setActiveTab] = useState<"organizers" | "events">(
+    "organizers",
+  );
+
   // State for Rejection Modal
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [rejectingItem, setRejectingItem] = useState<{ id: number, type: 'organizer' | 'event', name: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectingItem, setRejectingItem] = useState<{
+    id: any;
+    type: "organizer" | "event";
+    name: string;
+  } | null>(null);
 
   // State for Details Modal
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
-  const [selectedRequestType, setSelectedRequestType] = useState<'organizer' | 'event'>('organizer');
+  const [selectedRequestType, setSelectedRequestType] = useState<
+    "organizer" | "event"
+  >("organizer");
 
   // State for lists to allow removing items after action
-  const [organizerRequests, setOrganizerRequests] = useState(MOCK_ORGANIZER_REQUESTS);
-  const [eventRequests, setEventRequests] = useState(MOCK_EVENT_REQUESTS);
+  const [organizerRequests, setOrganizerRequests] = useState<any[]>([]);
+  const [eventRequests, setEventRequests] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [orgData, eventData] = await Promise.all([
+          listOrganizerApprovals(),
+          listEventApprovals(),
+        ]);
+        setOrganizerRequests(orgData);
+        setEventRequests(eventData);
+      } catch (err) {
+        toast.error("Failed to load pending requests");
+      }
+    };
+    fetchData();
+  }, []);
 
   // Filter States
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
 
   const [appliedFilters, setAppliedFilters] = useState({
-    category: '',
-    status: '',
-    dateFrom: '',
-    dateTo: ''
+    category: "",
+    status: "",
+    dateFrom: "",
+    dateTo: "",
   });
 
   const handleApplyFilters = () => {
@@ -54,87 +82,136 @@ export default function ApprovalCenter() {
       category: filterCategory,
       status: filterStatus,
       dateFrom: filterDateFrom,
-      dateTo: filterDateTo
+      dateTo: filterDateTo,
     });
     setIsFilterOpen(false);
   };
 
   const clearFilters = () => {
-    setFilterCategory('');
-    setFilterStatus('');
-    setFilterDateFrom('');
-    setFilterDateTo('');
+    setFilterCategory("");
+    setFilterStatus("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
     setAppliedFilters({
-      category: '',
-      status: '',
-      dateFrom: '',
-      dateTo: ''
+      category: "",
+      status: "",
+      dateFrom: "",
+      dateTo: "",
     });
   };
 
   // Filtered Data
-  const filteredOrganizerRequests = organizerRequests.filter(req => 
-    req.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    req.clubName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filtered Data
+  const filteredOrganizerRequests = organizerRequests.filter((req) => {
+    const searchLower = (searchQuery || "").toLowerCase();
+    const nameLower = (req.name || "").toLowerCase();
+    const clubLower = (req.clubName || "").toLowerCase();
 
-  const filteredEventRequests = eventRequests.filter(req => {
-    const matchesSearch = req.title.toLowerCase().includes(searchQuery.toLowerCase()) || req.organizer.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = appliedFilters.category ? req.category === appliedFilters.category : true;
-    const matchesStatus = appliedFilters.status ? req.status === appliedFilters.status : true;
-    
+    return nameLower.includes(searchLower) || clubLower.includes(searchLower);
+  });
+
+  const filteredEventRequests = eventRequests.filter((req) => {
+    const searchLower = (searchQuery || "").toLowerCase();
+    const titleLower = (req.title || "").toLowerCase();
+    const organizerLower = (req.organizer || "").toLowerCase();
+
+    const matchesSearch =
+      titleLower.includes(searchLower) || organizerLower.includes(searchLower);
+    const matchesCategory = appliedFilters.category
+      ? req.category === appliedFilters.category
+      : true;
+    const matchesStatus = appliedFilters.status
+      ? req.status === appliedFilters.status
+      : true;
+
     let matchesDate = true;
-    if (appliedFilters.dateFrom && req.date < appliedFilters.dateFrom) matchesDate = false;
-    if (appliedFilters.dateTo && req.date > appliedFilters.dateTo) matchesDate = false;
+    if (appliedFilters.dateFrom && req.date < appliedFilters.dateFrom)
+      matchesDate = false;
+    if (appliedFilters.dateTo && req.date > appliedFilters.dateTo)
+      matchesDate = false;
 
     return matchesSearch && matchesCategory && matchesStatus && matchesDate;
   });
 
-  const handleApprove = (id: number, type: 'organizer' | 'event') => {
-    if (type === 'organizer') {
-      setOrganizerRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Organizer request approved successfully.');
-    } else {
-      setEventRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Event request approved successfully.');
+  const handleApprove = async (id: any, type: "organizer" | "event") => {
+    try {
+      if (type === "organizer") {
+        await decideOrganizerApproval(id, { decision: "APPROVED" });
+        setOrganizerRequests((prev) => prev.filter((req) => req.id !== id));
+        toast.success("Organizer request approved successfully.");
+      } else {
+        await decideEventApproval(id, { decision: "APPROVED" });
+        setEventRequests((prev) => prev.filter((req) => req.id !== id));
+        toast.success("Event request approved successfully.");
+      }
+    } catch (err) {
+      toast.error("Approval failed.");
     }
-    // In a real app, you would make an API call here
   };
 
-  const openRejectModal = (id: number, type: 'organizer' | 'event', name: string) => {
+  const openRejectModal = (
+    id: number,
+    type: "organizer" | "event",
+    name: string,
+  ) => {
     setRejectingItem({ id, type, name });
-    setRejectReason('');
+    setRejectReason("");
     setIsRejectModalOpen(true);
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (rejectingItem) {
-      if (rejectingItem.type === 'organizer') {
-        setOrganizerRequests(prev => prev.filter(req => req.id !== rejectingItem.id));
-        toast.success('Organizer request rejected.');
-      } else {
-        setEventRequests(prev => prev.filter(req => req.id !== rejectingItem.id));
-        toast.success('Event request rejected.');
+      try {
+        if (rejectingItem.type === "organizer") {
+          await decideOrganizerApproval(rejectingItem.id, {
+            decision: "REJECTED",
+            reason: rejectReason,
+          });
+          setOrganizerRequests((prev) =>
+            prev.filter((req) => req.id !== rejectingItem.id),
+          );
+          toast.success("Organizer request rejected.");
+        } else {
+          await decideEventApproval(rejectingItem.id, {
+            decision: "REJECTED",
+            reason: rejectReason,
+          });
+          setEventRequests((prev) =>
+            prev.filter((req) => req.id !== rejectingItem.id),
+          );
+          toast.success("Event request rejected.");
+        }
+      } catch (err) {
+        toast.error("Rejection failed.");
       }
-      // In a real app, you would make an API call here with the rejectReason
     }
     setIsRejectModalOpen(false);
     setRejectingItem(null);
   };
 
-  const openDetailsModal = (request: any, type: 'organizer' | 'event') => {
+  const openDetailsModal = (request: any, type: "organizer" | "event") => {
     setSelectedRequest(request);
     setSelectedRequestType(type);
     setIsDetailsModalOpen(true);
   };
 
-  const handleModalReject = (id: number, type: 'organizer' | 'event', reason: string) => {
-    if (type === 'organizer') {
-      setOrganizerRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Organizer request rejected.');
-    } else {
-      setEventRequests(prev => prev.filter(req => req.id !== id));
-      toast.success('Event request rejected.');
+  const handleModalReject = async (
+    id: any,
+    type: "organizer" | "event",
+    reason: string,
+  ) => {
+    try {
+      if (type === "organizer") {
+        await decideOrganizerApproval(id, { decision: "REJECTED", reason });
+        setOrganizerRequests((prev) => prev.filter((req) => req.id !== id));
+        toast.success("Organizer request rejected.");
+      } else {
+        await decideEventApproval(id, { decision: "REJECTED", reason });
+        setEventRequests((prev) => prev.filter((req) => req.id !== id));
+        toast.success("Event request rejected.");
+      }
+    } catch (err) {
+      toast.error("Rejection failed.");
     }
   };
 
@@ -143,17 +220,19 @@ export default function ApprovalCenter() {
       <div className="max-w-6xl mx-auto pb-12">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Approval Center</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">Review and manage pending requests from organizers and events.</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">
+            Review and manage pending requests from organizers and events.
+          </p>
         </div>
 
         {/* Tabs */}
         <div className="flex items-center gap-2 mb-8 border-b border-slate-200 dark:border-slate-800 pb-px">
           <button
-            onClick={() => setActiveTab('organizers')}
+            onClick={() => setActiveTab("organizers")}
             className={`px-6 py-3 font-medium text-sm transition-all relative ${
-              activeTab === 'organizers' 
-                ? 'text-blue-600 dark:text-blue-400' 
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              activeTab === "organizers"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -165,16 +244,19 @@ export default function ApprovalCenter() {
                 </span>
               )}
             </div>
-            {activeTab === 'organizers' && (
-              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
+            {activeTab === "organizers" && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
             )}
           </button>
           <button
-            onClick={() => setActiveTab('events')}
+            onClick={() => setActiveTab("events")}
             className={`px-6 py-3 font-medium text-sm transition-all relative ${
-              activeTab === 'events' 
-                ? 'text-blue-600 dark:text-blue-400' 
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              activeTab === "events"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -186,8 +268,11 @@ export default function ApprovalCenter() {
                 </span>
               )}
             </div>
-            {activeTab === 'events' && (
-              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
+            {activeTab === "events" && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
             )}
           </button>
         </div>
@@ -197,21 +282,25 @@ export default function ApprovalCenter() {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={`Search ${activeTab}...`}
                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
               />
             </div>
-            {activeTab === 'events' && (
-              <button 
+            {activeTab === "events" && (
+              <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors ${
-                  isFilterOpen || appliedFilters.category || appliedFilters.status || appliedFilters.dateFrom || appliedFilters.dateTo
-                    ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-400'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  isFilterOpen ||
+                  appliedFilters.category ||
+                  appliedFilters.status ||
+                  appliedFilters.dateFrom ||
+                  appliedFilters.dateTo
+                    ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-400"
+                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >
                 <Filter className="w-4 h-4" />
@@ -222,18 +311,20 @@ export default function ApprovalCenter() {
 
           {/* Expandable Filter Panel for Events */}
           <AnimatePresence>
-            {activeTab === 'events' && isFilterOpen && (
-              <motion.div 
+            {activeTab === "events" && isFilterOpen && (
+              <motion.div
                 initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
+                animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Category</label>
-                      <select 
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+                        Category
+                      </label>
+                      <select
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
@@ -246,8 +337,10 @@ export default function ApprovalCenter() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Status</label>
-                      <select 
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+                        Status
+                      </label>
+                      <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
@@ -258,18 +351,22 @@ export default function ApprovalCenter() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">From Date</label>
-                      <input 
-                        type="date" 
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+                        From Date
+                      </label>
+                      <input
+                        type="date"
                         value={filterDateFrom}
                         onChange={(e) => setFilterDateFrom(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">To Date</label>
-                      <input 
-                        type="date" 
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+                        To Date
+                      </label>
+                      <input
+                        type="date"
                         value={filterDateTo}
                         onChange={(e) => setFilterDateTo(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
@@ -277,13 +374,13 @@ export default function ApprovalCenter() {
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <button 
+                    <button
                       onClick={clearFilters}
                       className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                     >
                       Clear
                     </button>
-                    <button 
+                    <button
                       onClick={handleApplyFilters}
                       className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                     >
@@ -299,7 +396,7 @@ export default function ApprovalCenter() {
         {/* Content Area */}
         <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
           <AnimatePresence mode="wait">
-            {activeTab === 'organizers' ? (
+            {activeTab === "organizers" ? (
               <motion.div
                 key="organizers"
                 initial={{ opacity: 0, y: 10 }}
@@ -321,39 +418,56 @@ export default function ApprovalCenter() {
                     <tbody>
                       <AnimatePresence>
                         {filteredOrganizerRequests.map((req) => (
-                          <motion.tr 
+                          <motion.tr
                             key={req.id}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            exit={{ opacity: 0, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+                            exit={{
+                              opacity: 0,
+                              backgroundColor: "rgba(239, 68, 68, 0.1)",
+                            }}
                             className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors group"
                           >
                             <td className="p-4 font-medium">{req.name}</td>
-                            <td className="p-4 text-slate-500 dark:text-slate-400">{req.email}</td>
+                            <td className="p-4 text-slate-500 dark:text-slate-400">
+                              {req.email}
+                            </td>
                             <td className="p-4">
                               <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-medium">
                                 {req.clubName}
                               </span>
                             </td>
-                            <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">{req.date}</td>
+                            <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
+                              {req.date}
+                            </td>
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={() => openDetailsModal(req, 'organizer')}
+                                <button
+                                  onClick={() =>
+                                    openDetailsModal(req, "organizer")
+                                  }
                                   className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 rounded-lg transition-colors"
                                   title="View Details"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                <button 
-                                  onClick={() => handleApprove(req.id, 'organizer')}
+                                <button
+                                  onClick={() =>
+                                    handleApprove(req.id, "organizer")
+                                  }
                                   className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 rounded-lg transition-colors"
                                   title="Approve"
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
-                                <button 
-                                  onClick={() => openRejectModal(req.id, 'organizer', req.name)}
+                                <button
+                                  onClick={() =>
+                                    openRejectModal(
+                                      req.id,
+                                      "organizer",
+                                      req.name,
+                                    )
+                                  }
                                   className="p-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 rounded-lg transition-colors"
                                   title="Reject"
                                 >
@@ -366,7 +480,10 @@ export default function ApprovalCenter() {
                       </AnimatePresence>
                       {filteredOrganizerRequests.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                          <td
+                            colSpan={5}
+                            className="p-8 text-center text-slate-500 dark:text-slate-400"
+                          >
                             No pending organizer requests found.
                           </td>
                         </tr>
@@ -397,19 +514,28 @@ export default function ApprovalCenter() {
                     <tbody>
                       <AnimatePresence>
                         {filteredEventRequests.map((req) => (
-                          <motion.tr 
+                          <motion.tr
                             key={req.id}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            exit={{ opacity: 0, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+                            exit={{
+                              opacity: 0,
+                              backgroundColor: "rgba(239, 68, 68, 0.1)",
+                            }}
                             className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors group"
                           >
                             <td className="p-4 font-medium">
                               {req.title}
-                              <div className="text-xs text-slate-500 dark:text-slate-400 font-normal mt-0.5">{req.category}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400 font-normal mt-0.5">
+                                {req.category}
+                              </div>
                             </td>
-                            <td className="p-4 text-slate-500 dark:text-slate-400">{req.organizer}</td>
-                            <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">{req.date}</td>
+                            <td className="p-4 text-slate-500 dark:text-slate-400">
+                              {req.organizer}
+                            </td>
+                            <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
+                              {req.date}
+                            </td>
                             <td className="p-4">
                               <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium">
                                 {req.status}
@@ -417,22 +543,24 @@ export default function ApprovalCenter() {
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={() => openDetailsModal(req, 'event')}
+                                <button
+                                  onClick={() => openDetailsModal(req, "event")}
                                   className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 rounded-lg transition-colors"
                                   title="View Details"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                <button 
-                                  onClick={() => handleApprove(req.id, 'event')}
+                                <button
+                                  onClick={() => handleApprove(req.id, "event")}
                                   className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 rounded-lg transition-colors"
                                   title="Approve"
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
-                                <button 
-                                  onClick={() => openRejectModal(req.id, 'event', req.title)}
+                                <button
+                                  onClick={() =>
+                                    openRejectModal(req.id, "event", req.title)
+                                  }
                                   className="p-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 rounded-lg transition-colors"
                                   title="Reject"
                                 >
@@ -445,7 +573,10 @@ export default function ApprovalCenter() {
                       </AnimatePresence>
                       {filteredEventRequests.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                          <td
+                            colSpan={5}
+                            className="p-8 text-center text-slate-500 dark:text-slate-400"
+                          >
                             No pending event requests found.
                           </td>
                         </tr>
@@ -463,14 +594,14 @@ export default function ApprovalCenter() {
       <AnimatePresence>
         {isRejectModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
               onClick={() => setIsRejectModalOpen(false)}
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -483,14 +614,20 @@ export default function ApprovalCenter() {
                   </div>
                   <h3 className="text-xl font-bold">Reject Request</h3>
                 </div>
-                
+
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                  You are about to reject the request for <strong className="text-slate-900 dark:text-white">{rejectingItem?.name}</strong>. Please provide a reason for this rejection.
+                  You are about to reject the request for{" "}
+                  <strong className="text-slate-900 dark:text-white">
+                    {rejectingItem?.name}
+                  </strong>
+                  . Please provide a reason for this rejection.
                 </p>
 
                 <div className="space-y-2 mb-8">
-                  <label className="block text-sm font-medium">Reason for Rejection</label>
-                  <textarea 
+                  <label className="block text-sm font-medium">
+                    Reason for Rejection
+                  </label>
+                  <textarea
                     rows={4}
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
@@ -500,13 +637,13 @@ export default function ApprovalCenter() {
                 </div>
 
                 <div className="flex items-center justify-end gap-3">
-                  <button 
+                  <button
                     onClick={() => setIsRejectModalOpen(false)}
                     className="px-5 py-2.5 rounded-xl font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleConfirmReject}
                     disabled={!rejectReason.trim()}
                     className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -536,14 +673,21 @@ interface RequestDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   request: any;
-  type: 'organizer' | 'event';
-  onApprove: (id: number, type: 'organizer' | 'event') => void;
-  onReject: (id: number, type: 'organizer' | 'event', reason: string) => void;
+  type: "organizer" | "event";
+  onApprove: (id: any, type: "organizer" | "event") => void;
+  onReject: (id: any, type: "organizer" | "event", reason: string) => void;
 }
 
-function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReject }: RequestDetailsModalProps) {
+function RequestDetailsModal({
+  isOpen,
+  onClose,
+  request,
+  type,
+  onApprove,
+  onReject,
+}: RequestDetailsModalProps) {
   const [isRejecting, setIsRejecting] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState("");
 
   if (!request) return null;
 
@@ -551,7 +695,7 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
     if (isRejecting) {
       onReject(request.id, type, rejectReason);
       setIsRejecting(false);
-      setRejectReason('');
+      setRejectReason("");
       onClose();
     } else {
       setIsRejecting(true);
@@ -565,7 +709,7 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
 
   const handleClose = () => {
     setIsRejecting(false);
-    setRejectReason('');
+    setRejectReason("");
     onClose();
   };
 
@@ -573,14 +717,14 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={handleClose}
           />
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -589,9 +733,14 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <h3 className="text-xl font-bold">
-                {type === 'organizer' ? 'Organizer Request Details' : 'Event Request Details'}
+                {type === "organizer"
+                  ? "Organizer Request Details"
+                  : "Event Request Details"}
               </h3>
-              <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <button
+                onClick={handleClose}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -604,17 +753,26 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
                   <h4 className="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">
                     Information
                   </h4>
-                  
-                  {type === 'organizer' ? (
+
+                  {type === "organizer" ? (
                     <div className="space-y-4">
                       <DetailRow label="Full Name" value={request.name} />
                       <DetailRow label="Email" value={request.email} />
-                      <DetailRow label="Phone" value={request.phone || '+1 (555) 123-4567'} />
-                      <DetailRow label="Club / Society Name" value={request.clubName} />
+                      <DetailRow
+                        label="Phone"
+                        value={request.phone || "+1 (555) 123-4567"}
+                      />
+                      <DetailRow
+                        label="Club / Society Name"
+                        value={request.clubName}
+                      />
                       <div className="space-y-1">
-                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Description</span>
+                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                          Description
+                        </span>
                         <p className="text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                          {request.description || 'We are a student-led organization dedicated to fostering innovation and collaboration among tech enthusiasts on campus.'}
+                          {request.description ||
+                            "We are a student-led organization dedicated to fostering innovation and collaboration among tech enthusiasts on campus."}
                         </p>
                       </div>
                     </div>
@@ -622,26 +780,49 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
                     <div className="space-y-4">
                       <DetailRow label="Event Title" value={request.title} />
                       <DetailRow label="Organizer" value={request.organizer} />
-                      <DetailRow label="Category" value={request.category || 'Technology'} />
+                      <DetailRow
+                        label="Category"
+                        value={request.category || "Technology"}
+                      />
                       <div className="grid grid-cols-2 gap-4">
                         <DetailRow label="Date" value={request.date} />
-                        <DetailRow label="Time" value={request.time || '09:00 AM'} />
+                        <DetailRow
+                          label="Time"
+                          value={request.time || "09:00 AM"}
+                        />
                       </div>
-                      <DetailRow label="Venue" value={request.venue || 'Main Campus Auditorium'} />
+                      <DetailRow
+                        label="Venue"
+                        value={request.venue || "Main Campus Auditorium"}
+                      />
                       <div className="grid grid-cols-2 gap-4">
-                        <DetailRow label="Total Capacity" value={request.capacity} />
-                        <DetailRow label="Target Audience" value={request.audience || 'University Students Only'} />
+                        <DetailRow
+                          label="Total Capacity"
+                          value={request.capacity}
+                        />
+                        <DetailRow
+                          label="Target Audience"
+                          value={request.audience || "University Students Only"}
+                        />
                       </div>
                       <div className="space-y-1">
-                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Ticket Tiers</span>
+                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                          Ticket Tiers
+                        </span>
                         <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="font-medium">Early Bird</span>
-                            <span className="text-slate-500">Rs. 500 (50 qty)</span>
+                            <span className="text-slate-500">
+                              Rs. 500 (50 qty)
+                            </span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="font-medium">General Admission</span>
-                            <span className="text-slate-500">Rs. 1000 (100 qty)</span>
+                            <span className="font-medium">
+                              General Admission
+                            </span>
+                            <span className="text-slate-500">
+                              Rs. 1000 (100 qty)
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -653,27 +834,78 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
                 <div className="space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
                     <h4 className="text-lg font-bold text-slate-900 dark:text-white">
-                      {type === 'organizer' ? 'ID / Approval Document' : 'University Approval Document'}
+                      {type === "organizer"
+                        ? "ID / Approval Document"
+                        : "Required Documents"}
                     </h4>
-                    <button className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
-                      <Download className="w-4 h-4" /> Download
-                    </button>
+                    {request.documentUrl && (
+                      <a
+                        href={request.documentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                      >
+                        <Download className="w-4 h-4" /> Download
+                      </a>
+                    )}
                   </div>
-                  
-                  <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden aspect-[3/4] relative flex items-center justify-center">
-                    {/* Placeholder for Document */}
-                    <div className="absolute inset-0 p-4">
-                      <img 
-                        src={`https://picsum.photos/seed/${request.id}/800/1000?grayscale&blur=1`} 
-                        alt="Document Preview" 
-                        className="w-full h-full object-cover rounded-xl opacity-50"
-                        referrerPolicy="no-referrer"
-                      />
+
+                  {type === "event" && request.coverImageUrl && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium font-bold text-slate-900 dark:text-white mb-2">
+                        Cover Image
+                      </p>
+                      <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden aspect-video relative flex items-center justify-center">
+                        <img
+                          src={request.coverImageUrl}
+                          alt="Cover Image Preview"
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://placehold.co/800x450/e2e8f0/64748b?text=Image+Unavailable';
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="relative z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-6 py-4 rounded-xl shadow-lg text-center border border-slate-200 dark:border-slate-700">
-                      <p className="font-bold text-slate-900 dark:text-white mb-1">Document Preview</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">approval_document.pdf</p>
-                    </div>
+                  )}
+
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden aspect-[3/4] relative flex items-center justify-center group p-4">
+                    {/* Document View */}
+                    {request.documentUrl ? (
+                      request.documentUrl.toLowerCase().includes(".pdf") ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 text-center">
+                          <FileText className="w-16 h-16 mb-4 opacity-50" />
+                          <p className="font-bold text-slate-900 dark:text-white mb-1">
+                            PDF Document
+                          </p>
+                          <a
+                            href={request.documentUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-4 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors rounded-lg text-sm font-medium"
+                          >
+                            Open PDF Document
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full p-2">
+                          <img
+                            src={request.documentUrl}
+                            alt="Document Preview"
+                            className="w-full h-full object-contain rounded-xl"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://placehold.co/600x800/e2e8f0/64748b?text=Preview+Unavailable';
+                            }}
+                          />
+                        </div>
+                      )
+                    ) : (
+                      <div className="text-center p-6 text-slate-500">
+                        <FileText className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                        <p>No document provided</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -681,9 +913,9 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
               {/* Rejection Area */}
               <AnimatePresence>
                 {isRejecting && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                    animate={{ opacity: 1, height: 'auto', marginTop: 24 }}
+                    animate={{ opacity: 1, height: "auto", marginTop: 24 }}
                     exit={{ opacity: 0, height: 0, marginTop: 0 }}
                     className="overflow-hidden"
                   >
@@ -692,7 +924,7 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
                         <AlertCircle className="w-5 h-5" />
                         <h4 className="font-bold">Provide Rejection Reason</h4>
                       </div>
-                      <textarea 
+                      <textarea
                         rows={3}
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
@@ -709,13 +941,13 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
             <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 shrink-0 flex items-center justify-end gap-3">
               {isRejecting ? (
                 <>
-                  <button 
+                  <button
                     onClick={() => setIsRejecting(false)}
                     className="px-5 py-2.5 rounded-xl font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   >
                     Cancel Rejection
                   </button>
-                  <button 
+                  <button
                     onClick={handleReject}
                     disabled={!rejectReason.trim()}
                     className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
@@ -725,13 +957,13 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
                 </>
               ) : (
                 <>
-                  <button 
+                  <button
                     onClick={handleReject}
                     className="px-5 py-2.5 rounded-xl font-medium bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 transition-colors flex items-center gap-2"
                   >
                     <X className="w-4 h-4" /> Reject
                   </button>
-                  <button 
+                  <button
                     onClick={handleApprove}
                     className="px-5 py-2.5 rounded-xl font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition-colors flex items-center gap-2 shadow-sm"
                   >
@@ -747,11 +979,21 @@ function RequestDetailsModal({ isOpen, onClose, request, type, onApprove, onReje
   );
 }
 
-function DetailRow({ label, value }: { label: string, value: string | number }) {
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/50 last:border-0">
-      <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="text-sm font-bold text-slate-900 dark:text-white text-right">{value}</span>
+      <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+        {label}
+      </span>
+      <span className="text-sm font-bold text-slate-900 dark:text-white text-right">
+        {value}
+      </span>
     </div>
   );
 }

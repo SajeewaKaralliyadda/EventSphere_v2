@@ -4,37 +4,68 @@ import { Upload, Image as ImageIcon, Calendar, Clock, MapPin, Ticket, DollarSign
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import DynamicButton from '../../components/ui/DynamicButton';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { getEvent, updateEvent } from '../../services/organizerService';
 
 export default function EditEvent() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
 
   // Simulated state for whether tickets have been sold
   const ticketsSold = true; 
   const [isSaved, setIsSaved] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: 'Annual Tech Symposium 2026',
+    title: '',
     category: 'Technology',
-    description: 'Join us for the biggest tech event of the year featuring keynote speakers from top tech companies, hands-on workshops, and a 24-hour hackathon.',
-    date: '2026-05-15',
-    time: '09:00',
-    venue: 'Main Campus Auditorium',
-    capacity: '500',
+    description: '',
+    date: '',
+    time: '',
+    venue: '',
+    capacity: '',
     audienceRestriction: 'university',
-    ticketTiers: [
-      { id: 1, name: 'Early Bird', price: '500', qty: '100' },
-      { id: 2, name: 'General Admission', price: '1000', qty: '400' }
-    ]
+    ticketTiers: [] as any[]
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!user?.id || !id) return;
+    getEvent(user.id, id)
+      .then(data => {
+        setFormData(prev => ({
+          ...prev,
+          title: data.title,
+          description: data.description || '',
+          date: data.eventDate ? data.eventDate.split('T')[0] : '',
+          time: data.eventDate ? data.eventDate.split('T')[1].substring(0, 5) : '',
+          venue: data.location || '',
+          capacity: String(data.totalCapacity),
+        }));
+      })
+      .catch(err => console.error("Failed to load event", err));
+  }, [user?.id, id]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaved(true);
-    setTimeout(() => {
-      setIsSaved(false);
-      navigate('/organizer');
-    }, 2000);
+    if (!user?.id || !id) return;
+    try {
+      const formattedDate = `${formData.date}T${formData.time}:00`;
+      await updateEvent(user.id, id, {
+        title: formData.title,
+        description: formData.description,
+        eventDate: formattedDate,
+        location: formData.venue,
+        totalCapacity: parseInt(formData.capacity, 10) || 0,
+        category: formData.category
+      });
+      setIsSaved(true);
+      setTimeout(() => {
+        setIsSaved(false);
+        navigate('/organizer');
+      }, 2000);
+    } catch (err) {
+      console.error("Failed to update event", err);
+    }
   };
 
   return (

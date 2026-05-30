@@ -9,9 +9,13 @@ import {
   MapPin, 
   ArrowLeft, 
   ShieldCheck,
-  Ticket
+  Ticket,
+  Loader2
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import GlobalNavbar from '../../components/ui/GlobalNavbar';
+import { createBooking } from '../../services/attendeeService';
+import api from '../../lib/api';
 
 export default function CheckoutWizard() {
   const location = useLocation();
@@ -20,6 +24,11 @@ export default function CheckoutWizard() {
   const { event, tickets, totalPrice } = location.state || {};
 
   const [step, setStep] = useState(1);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
 
   // Auth protection - Must be attendee to checkout
   if (!user || user.role !== 'ATTENDEE') {
@@ -50,11 +59,63 @@ export default function CheckoutWizard() {
   const selectedTiers = event.tiers.filter((t: any) => tickets[t.id] > 0);
   const totalQuantity = selectedTiers.reduce((acc: number, tier: any) => acc + tickets[tier.id], 0);
 
+  const finalPrice = appliedPromo 
+    ? appliedPromo.type === 'PERCENTAGE' 
+      ? totalPrice * (1 - appliedPromo.discountValue / 100) 
+      : Math.max(0, totalPrice - appliedPromo.discountValue)
+    : totalPrice;
+
   const steps = [
     { num: 1, title: 'Details', icon: User },
     { num: 2, title: 'Payment', icon: CreditCard },
     { num: 3, title: 'Confirmation', icon: CheckCircle },
   ];
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    try {
+      const bookingResponse = await createBooking(event.id, tickets, appliedPromo?.code);
+      if (bookingResponse.checkoutUrl) {
+        window.location.href = bookingResponse.checkoutUrl;
+      } else {
+        setStep(3);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Booking failed. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const checkPromoCode = async () => {
+    if (!promoCode) return;
+    setIsCheckingPromo(true);
+    setPromoError('');
+    try {
+      const res = await api.post(`/api/public/promo-codes/validate`, {
+        code: promoCode.toUpperCase(),
+        eventId: event.id,
+        originalAmount: totalPrice
+      });
+      if (res.data && res.data.valid) {
+        setAppliedPromo({
+          code: res.data.code,
+          type: res.data.discountType,
+          discountValue: res.data.discountValue
+        });
+        setPromoError('');
+        toast.success('Promo code applied!');
+      } else {
+        setPromoError(res.data.message || 'Invalid or expired promo code');
+        setAppliedPromo(null);
+      }
+    } catch (err: any) {
+      setPromoError(err.response?.data?.message || 'Failed to verify promo code');
+    } finally {
+      setIsCheckingPromo(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-500 pb-24">
@@ -136,7 +197,7 @@ export default function CheckoutWizard() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-600 dark:text-slate-300 font-medium">Total Tickets: {totalQuantity}</span>
-                  <span className="font-bold text-xl text-blue-600 dark:text-blue-400">Rs. {totalPrice.toFixed(2)}</span>
+                  <span className="font-bold text-xl text-blue-600 dark:text-blue-400">Rs. {finalPrice.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -208,37 +269,36 @@ export default function CheckoutWizard() {
                     </div>
                   </div>
                   
-                  <form onSubmit={(e) => { e.preventDefault(); setStep(3); }} className="space-y-6">
+                  <form onSubmit={handlePaymentSubmit} className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Name on Card</label>
-                      <input type="text" required placeholder="John Doe" className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Card Number</label>
-                      <div className="relative">
-                        <input type="text" required placeholder="0000 0000 0000 0000" className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" />
-                        <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Promo Code</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={promoCode}
+                          onChange={e => setPromoCode(e.target.value)}
+                          disabled={!!appliedPromo}
+                          placeholder="Have a promo code?" 
+                          className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase" 
+                        />
+                        {appliedPromo ? (
+                          <button type="button" onClick={() => { setAppliedPromo(null); setPromoCode(''); }} className="px-4 py-3 bg-red-100 text-red-600 font-medium rounded-xl hover:bg-red-200">Remove</button>
+                        ) : (
+                          <button type="button" onClick={checkPromoCode} disabled={!promoCode || isCheckingPromo} className="px-4 py-3 bg-slate-200 dark:bg-slate-700 font-medium rounded-xl disabled:opacity-50 hover:bg-slate-300 dark:hover:bg-slate-600">Apply</button>
+                        )}
                       </div>
+                      {promoError && <p className="text-red-500 text-sm mt-1">{promoError}</p>}
+                      {appliedPromo && <p className="text-emerald-500 text-sm mt-1">Promo code applied successfully!</p>}
                     </div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Expiry Date</label>
-                        <input type="text" required placeholder="MM/YY" className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">CVC</label>
-                        <input type="text" required placeholder="123" className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" />
-                      </div>
-                    </div>
-                    
+
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                       <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
-                      <p>Payments are secure and encrypted. Your card details are never stored on our servers.</p>
+                      <p>You will be securely redirected to Stripe to complete your payment.</p>
                     </div>
 
                     <div className="pt-4">
-                      <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg hover:shadow-blue-500/25 flex items-center justify-center">
-                        Confirm Booking &bull; Rs. {totalPrice.toFixed(2)}
+                      <button type="submit" disabled={isProcessing} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : `Proceed to Payment • Rs. ${finalPrice.toFixed(2)}`}
                       </button>
                     </div>
                   </form>
@@ -290,14 +350,16 @@ export default function CheckoutWizard() {
                       <span>Subtotal</span>
                       <span>Rs. {totalPrice.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                      <span>Fees & Taxes</span>
-                      <span>Rs. 0.00</span>
-                    </div>
+                    {appliedPromo && (
+                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                        <span>Discount ({appliedPromo.code})</span>
+                        <span>- Rs. {(totalPrice - finalPrice).toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
                       <span className="text-lg font-bold text-slate-900 dark:text-white">Total</span>
                       <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">
-                        Rs. {totalPrice.toFixed(2)}
+                        Rs. {finalPrice.toFixed(2)}
                       </span>
                     </div>
                   </div>
