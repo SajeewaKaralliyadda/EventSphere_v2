@@ -231,6 +231,14 @@ export const removeTeamMember = (organizerId: string, memberId: string): Promise
     .delete(`/api/v1/organizers/${organizerId}/team/members/${memberId}`)
     .then(() => undefined);
 
+/**
+ * POST /api/v1/organizers/{organizerId}/team/members/{memberId}/resend-invite
+ */
+export const resendTeamMemberInvite = (organizerId: string, memberId: string): Promise<void> =>
+  api
+    .post(`/api/v1/organizers/${organizerId}/team/members/${memberId}/resend-invite`)
+    .then(() => undefined);
+
 // ─── Ticket Tiers ───────────────────────────────────────────────────────────
 
 /**

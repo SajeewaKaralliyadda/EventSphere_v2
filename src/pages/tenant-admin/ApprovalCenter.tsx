@@ -11,6 +11,7 @@ import {
   Eye,
   Download,
   FileText,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import SidebarLayout from "../../components/ui/SidebarLayout";
@@ -41,6 +42,9 @@ export default function ApprovalCenter() {
   const [selectedRequestType, setSelectedRequestType] = useState<
     "organizer" | "event"
   >("organizer");
+
+  // State for Loading
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // State for lists to allow removing items after action
   const [organizerRequests, setOrganizerRequests] = useState<any[]>([]);
@@ -135,6 +139,7 @@ export default function ApprovalCenter() {
 
   const handleApprove = async (id: any, type: "organizer" | "event") => {
     try {
+      setProcessingId(id);
       if (type === "organizer") {
         await decideOrganizerApproval(id, { decision: "APPROVED" });
         setOrganizerRequests((prev) => prev.filter((req) => req.id !== id));
@@ -146,6 +151,8 @@ export default function ApprovalCenter() {
       }
     } catch (err) {
       toast.error("Approval failed.");
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -162,6 +169,7 @@ export default function ApprovalCenter() {
   const handleConfirmReject = async () => {
     if (rejectingItem) {
       try {
+        setProcessingId(rejectingItem.id);
         if (rejectingItem.type === "organizer") {
           await decideOrganizerApproval(rejectingItem.id, {
             decision: "REJECTED",
@@ -183,6 +191,8 @@ export default function ApprovalCenter() {
         }
       } catch (err) {
         toast.error("Rejection failed.");
+      } finally {
+        setProcessingId(null);
       }
     }
     setIsRejectModalOpen(false);
@@ -455,10 +465,11 @@ export default function ApprovalCenter() {
                                   onClick={() =>
                                     handleApprove(req.id, "organizer")
                                   }
-                                  className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 rounded-lg transition-colors"
+                                  disabled={processingId === req.id}
+                                  className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 rounded-lg transition-colors disabled:opacity-50"
                                   title="Approve"
                                 >
-                                  <Check className="w-4 h-4" />
+                                  {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                                 </button>
                                 <button
                                   onClick={() =>
@@ -468,10 +479,11 @@ export default function ApprovalCenter() {
                                       req.name,
                                     )
                                   }
-                                  className="p-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 rounded-lg transition-colors"
+                                  disabled={processingId === req.id}
+                                  className="p-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
                                   title="Reject"
                                 >
-                                  <X className="w-4 h-4" />
+                                  {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                                 </button>
                               </div>
                             </td>
@@ -552,19 +564,21 @@ export default function ApprovalCenter() {
                                 </button>
                                 <button
                                   onClick={() => handleApprove(req.id, "event")}
-                                  className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 rounded-lg transition-colors"
+                                  disabled={processingId === req.id}
+                                  className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 rounded-lg transition-colors disabled:opacity-50"
                                   title="Approve"
                                 >
-                                  <Check className="w-4 h-4" />
+                                  {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                                 </button>
                                 <button
                                   onClick={() =>
                                     openRejectModal(req.id, "event", req.title)
                                   }
-                                  className="p-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 rounded-lg transition-colors"
+                                  disabled={processingId === req.id}
+                                  className="p-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
                                   title="Reject"
                                 >
-                                  <X className="w-4 h-4" />
+                                  {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                                 </button>
                               </div>
                             </td>
@@ -645,9 +659,10 @@ export default function ApprovalCenter() {
                   </button>
                   <button
                     onClick={handleConfirmReject}
-                    disabled={!rejectReason.trim()}
-                    className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={!rejectReason.trim() || processingId !== null}
+                    className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
+                    {processingId !== null && <Loader2 className="w-4 h-4 animate-spin" />}
                     Confirm Reject
                   </button>
                 </div>
