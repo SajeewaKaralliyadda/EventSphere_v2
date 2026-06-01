@@ -18,6 +18,7 @@ import {
   XCircle,
   X,
   Loader2,
+  Trash,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -125,16 +126,16 @@ export default function OrganizerDashboard() {
   const [isCancelling, setIsCancelling] = useState(false);
 
   const handleConfirmCancel = async () => {
-    if (cancelConfirmText === 'CANCEL' && selectedEvent && user?.id) {
+    if (cancelConfirmText === 'DELETE' && selectedEvent && user?.id) {
       setIsCancelling(true);
       try {
         await deleteEvent(user.id, selectedEvent.id);
         setMyEvents(prev => prev.filter(e => e.id !== selectedEvent.id));
-        toast.success(`Event "${selectedEvent.title}" has been cancelled.`);
+        toast.success(`Event "${selectedEvent.title}" has been deleted.`);
         setCancelModalOpen(false);
         setSelectedEvent(null);
       } catch (err: any) {
-        toast.error(err.response?.data?.message ?? 'Failed to cancel event.');
+        toast.error(err.response?.data?.message ?? 'Failed to delete event.');
       } finally {
         setIsCancelling(false);
       }
@@ -265,8 +266,8 @@ export default function OrganizerDashboard() {
                                     onClick={() => handleCancelClick(event)}
                                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
                                   >
-                                    <XCircle className="w-4 h-4" />
-                                    Cancel Event
+                                    <Trash className="w-4 h-4" />
+                                    Delete Event
                                   </button>
                                 </div>
                               </motion.div>
@@ -507,22 +508,22 @@ export default function OrganizerDashboard() {
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
                   <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
-                    <AlertTriangle className="w-5 h-5" />
+                    <Trash className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl font-bold">Cancel Event</h3>
+                  <h3 className="text-xl font-bold">Delete Event</h3>
                 </div>
                 
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                  You are about to cancel <strong className="text-slate-900 dark:text-white">{selectedEvent?.title}</strong>. This action cannot be undone and all attendees will be notified and refunded.
+                  You are about to delete <strong className="text-slate-900 dark:text-white">{selectedEvent?.title}</strong>. This action cannot be undone. All attendees will be notified and refunded.
                 </p>
 
                 <div className="space-y-2 mb-8">
-                  <label className="block text-sm font-medium">Type <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-red-600 dark:text-red-400">CANCEL</span> to confirm</label>
+                  <label className="block text-sm font-medium">Type <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-red-600 dark:text-red-400">DELETE</span> to confirm</label>
                   <input 
                     type="text" 
                     value={cancelConfirmText}
                     onChange={(e) => setCancelConfirmText(e.target.value)}
-                    placeholder="CANCEL"
+                    placeholder="DELETE"
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm"
                   />
                 </div>
@@ -536,11 +537,11 @@ export default function OrganizerDashboard() {
                   </button>
                   <button 
                     onClick={handleConfirmCancel}
-                    disabled={cancelConfirmText !== 'CANCEL' || isCancelling}
+                    disabled={cancelConfirmText !== 'DELETE' || isCancelling}
                     className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
                     {isCancelling && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {isCancelling ? 'Cancelling...' : 'Confirm Cancel'}
+                    {isCancelling ? 'Deleting...' : 'Confirm Delete'}
                   </button>
                 </div>
               </div>

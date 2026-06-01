@@ -186,10 +186,10 @@ export const updateEvent = (
     .then(r => r.data);
 
 /**
- * DELETE /api/v1/organizers/{organizerId}/events/{eventId}
+ * DELETE /api/v1/events/{eventId}
  */
 export const deleteEvent = (organizerId: string, eventId: string): Promise<void> =>
-  api.delete(`/api/v1/organizers/${organizerId}/events/${eventId}`).then(() => undefined);
+  api.delete(`/api/v1/events/${eventId}`).then(() => undefined);
 
 /**
  * POST /api/v1/organizers/{organizerId}/events/{eventId}/email
@@ -229,6 +229,14 @@ export const inviteTeamMember = (
 export const removeTeamMember = (organizerId: string, memberId: string): Promise<void> =>
   api
     .delete(`/api/v1/organizers/${organizerId}/team/members/${memberId}`)
+    .then(() => undefined);
+
+/**
+ * POST /api/v1/organizers/{organizerId}/team/members/{memberId}/resend-invite
+ */
+export const resendTeamMemberInvite = (organizerId: string, memberId: string): Promise<void> =>
+  api
+    .post(`/api/v1/organizers/${organizerId}/team/members/${memberId}/resend-invite`)
     .then(() => undefined);
 
 // ─── Ticket Tiers ───────────────────────────────────────────────────────────

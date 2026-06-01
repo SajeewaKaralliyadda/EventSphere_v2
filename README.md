@@ -1,20 +1,57 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+  <h1>🎉 EventSphere</h1>
+  <p>A Modern, Multi-Tenant Event Management Platform</p>
 </div>
 
-# Run and deploy your AI Studio app
+## 📖 About The Project
 
-This contains everything you need to run your app locally.
+EventSphere is a comprehensive, full-stack event management system designed to handle everything from event creation and ticketing to role-based team management and automated email campaigns. Built with a robust multi-tenant architecture, it provides isolated environments for different organizations to manage their events securely.
 
-View your app in AI Studio: https://ai.studio/apps/4ee23d4d-9377-4303-a9d1-e8422ac1f119
+**Live Application:** [https://eventsphere-ashy.vercel.app](https://eventsphere-ashy.vercel.app)
 
-## Run Locally
+### ✨ Key Features
 
-**Prerequisites:**  Node.js
+- **Multi-Tenancy:** Isolated data and dashboards for different organizations/tenants.
+- **Role-Based Access Control (RBAC):** Dedicated flows for Super Admins, Tenant Admins, Organizers, Gate Scanners, and Attendees.
+- **Event & Ticket Management:** End-to-end event creation, capacity planning, and QR code generation for tickets.
+- **Gate Scanning:** Mobile-friendly QR scanner interface for fast event check-ins.
+- **Automated Email Campaigns:** Weekly newsletters and secure user invitation workflows (via Brevo SMTP).
+- **Secure Payments:** Integrated checkout processes using Stripe.
 
+### 🛠️ Built With
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+**Frontend:**
+
+- React.js (with Vite)
+- React Router DOM
+- Tailwind CSS & Lucide Icons
+- Vercel (Hosting)
+
+**Backend:**
+
+- Java 17 & Spring Boot 3
+- Spring Security (JWT Authentication)
+- PostgreSQL (Hosted on Supabase)
+- Brevo (SMTP Relay for Emails)
+- Cloudinary (Media Storage)
+- Render (Hosting)
+
+---
+
+## 🚀 Getting Started
+
+Follow these instructions to set up the project locally on your machine.
+
+### Prerequisites
+
+- Node.js (v18 or higher)
+- Java 17 (JDK)
+- Maven
+
+### Frontend Setup
+
+1. Clone the repository and navigate to the frontend directory.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```

@@ -1,16 +1,41 @@
 import React, { useState } from "react";
-import { Mail, Phone, MapPin, Send, CheckCircle2 } from "lucide-react";
+import { Mail, Phone, MapPin, Send, CheckCircle2, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import GlobalNavbar from "../../components/ui/GlobalNavbar";
 import DynamicButton from "../../components/ui/DynamicButton";
+import { submitContactForm } from "../../services/publicService";
+import toast from "react-hot-toast";
 
 export default function ContactSupport() {
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 5000); // Reset after 5s
+    setIsSubmitting(true);
+    try {
+      await submitContactForm({
+        ...formData,
+        subject: formData.subject.toUpperCase() // Convert 'general' to 'GENERAL' for enum matching if backend expects it
+      });
+      setIsSubmitted(true);
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setFormData({ firstName: '', lastName: '', email: '', subject: '', message: '' });
+      }, 5000);
+    } catch (err) {
+      toast.error('Failed to send message. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -114,6 +139,8 @@ export default function ContactSupport() {
                       <input
                         type="text"
                         required
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({...formData, firstName: e.target.value})}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                       />
                     </div>
@@ -124,6 +151,8 @@ export default function ContactSupport() {
                       <input
                         type="text"
                         required
+                        value={formData.lastName}
+                        onChange={(e) => setFormData({...formData, lastName: e.target.value})}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                       />
                     </div>
@@ -136,6 +165,8 @@ export default function ContactSupport() {
                     <input
                       type="email"
                       required
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     />
                   </div>
@@ -144,13 +175,17 @@ export default function ContactSupport() {
                     <label className="block text-sm font-medium">Subject</label>
                     <select
                       required
+                      value={formData.subject}
+                      onChange={(e) => setFormData({...formData, subject: e.target.value})}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
                     >
                       <option value="">Select a topic...</option>
-                      <option value="general">General Inquiry</option>
-                      <option value="support">Technical Support</option>
-                      <option value="billing">Billing & Payments</option>
-                      <option value="partnership">Partnership Request</option>
+                      <option value="GENERAL_INQUIRY">General Inquiry</option>
+                      <option value="TECHNICAL_SUPPORT">Technical Support</option>
+                      <option value="PARTNERSHIP">Partnership Request</option>
+                      <option value="BUG_REPORT">Bug Report</option>
+                      <option value="FEEDBACK">Feedback</option>
+                      <option value="OTHER">Other</option>
                     </select>
                   </div>
 
@@ -159,15 +194,19 @@ export default function ContactSupport() {
                     <textarea
                       rows={5}
                       required
+                      value={formData.message}
+                      onChange={(e) => setFormData({...formData, message: e.target.value})}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
                     ></textarea>
                   </div>
 
                   <DynamicButton
                     type="submit"
+                    disabled={isSubmitting}
                     className="w-full py-4 text-base font-bold flex items-center justify-center gap-2"
                   >
-                    <Send className="w-5 h-5" /> Send Message
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} 
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
                   </DynamicButton>
                 </form>
               </div>

@@ -35,6 +35,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
         { name: 'Announcements', icon: Megaphone, path: '/super-admin/announcements' },
         { name: 'Email Campaigns', icon: Mail, path: '/super-admin/emails' },
         { name: 'Partnership Requests', icon: Building2, path: '/super-admin/partnerships' },
+        { name: 'Contact Messages', icon: Mail, path: '/super-admin/contact' },
         { name: 'Settings', icon: Settings, path: '/settings' },
       ];
     }
