@@ -76,6 +76,7 @@ export interface SpringPage<T> {
 /** GET /api/public/events/{eventId} — full detail including nested records */
 export interface PublicEventDetailResponse {
   id: string;
+  tenantId: string;
   title: string;
   description: string | null;
   eventDate: string;
@@ -115,6 +116,7 @@ export interface ReviewInfo {
 /** GET /api/public/organizers/{organizerId} */
 export interface PublicOrganizerResponse {
   id: string;
+  tenantId: string;
   organizationName: string;
   contactEmail: string;
   upcomingEvents: PublicEventResponse[];
@@ -145,6 +147,11 @@ export interface PartnershipSubmissionRequest {
   officialEmail: string;
   phoneNumber: string;
   message: string;
+}
+
+export interface FacultyDto {
+  id: string;
+  name: string;
 }
 
 // ─── API Functions ───────────────────────────────────────────────────────────
@@ -232,3 +239,34 @@ export const submitPartnershipRequest = (
   api
     .post<{ status: string; message: string }>('/api/public/contact/partnership', payload)
     .then(r => r.data);
+
+/**
+ * GET /api/public/tenants/{tenantId}/faculties
+ */
+export const getTenantFaculties = (tenantId: string): Promise<FacultyDto[]> =>
+  api.get<FacultyDto[]>(`/api/public/tenants/${tenantId}/faculties`).then(r => r.data);
+
+/**
+ * POST /api/v1/public/disputes
+ */
+export const submitDispute = (payload: {
+  targetId: string;
+  targetType: 'EVENT' | 'ORGANIZER';
+  tenantId: string;
+  reason: string;
+  description?: string;
+  reporterId?: string;
+}): Promise<{ message: string; disputeId: string }> =>
+  api.post('/api/v1/public/disputes', payload).then(r => r.data);
+
+/**
+ * POST /api/public/contact
+ */
+export const submitContactForm = (payload: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  subject: string;
+  message: string;
+}): Promise<{ status: string; message: string }> =>
+  api.post<{ status: string; message: string }>('/api/public/contact', payload).then(r => r.data);

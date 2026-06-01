@@ -77,6 +77,18 @@ export interface PartnershipRequestResponse {
   createdAt: string;
 }
 
+export interface ContactMessageResponse {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: 'OPEN' | 'RESOLVED';
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Tenant Management ───────────────────────────────────────────────────────
 
 /**
@@ -213,3 +225,9 @@ export const getPartnershipRequests = (): Promise<PartnershipRequestResponse[]> 
   api
     .get<PartnershipRequestResponse[]>('/api/v1/superadmin/partnerships')
     .then(r => r.data);
+
+/**
+ * GET /api/v1/superadmin/contact-messages
+ */
+export const getContactMessages = (): Promise<ContactMessageResponse[]> =>
+  api.get<ContactMessageResponse[]>('/api/v1/superadmin/contact-messages').then(r => r.data);

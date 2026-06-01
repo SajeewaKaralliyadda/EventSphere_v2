@@ -1,31 +1,38 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import SidebarLayout from '../../components/ui/SidebarLayout';
-import { UserPlus, Trash2, Mail, Shield, Loader2, RefreshCw } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useEffect, useCallback } from "react";
+import SidebarLayout from "../../components/ui/SidebarLayout";
+import {
+  UserPlus,
+  Trash2,
+  Mail,
+  Shield,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   listTeamMembers,
   inviteTeamMember,
   removeTeamMember,
+  resendTeamMemberInvite,
   type TeamMemberResponse,
-} from '../../services/organizerService';
+} from "../../services/organizerService";
 
-type BackendRole = 'ORGANIZER' | 'CO_ORGANIZER' | 'GATE_SCANNER';
-type InviteRole = 'CO_ORGANIZER' | 'GATE_SCANNER';
+type BackendRole = "ORGANIZER" | "CO_ORGANIZER" | "GATE_SCANNER";
+type InviteRole = "CO_ORGANIZER" | "GATE_SCANNER";
 
 const ROLE_LABELS: Record<BackendRole, string> = {
-  ORGANIZER: 'Organizer',
-  CO_ORGANIZER: 'Co-Organizer',
-  GATE_SCANNER: 'Gate Scanner',
+  ORGANIZER: "Organizer",
+  CO_ORGANIZER: "Co-Organizer",
+  GATE_SCANNER: "Gate Scanner",
 };
 
 const ROLE_BADGE: Record<BackendRole, string> = {
-  ORGANIZER:
-    'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+  ORGANIZER: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
   CO_ORGANIZER:
-    'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
+    "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
   GATE_SCANNER:
-    'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400",
 };
 
 export default function TeamManagement() {
@@ -43,33 +50,47 @@ export default function TeamManagement() {
       const members = await listTeamMembers(user.id);
       setTeam(members);
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Failed to load team members.');
+      toast.error(
+        err.response?.data?.message ?? "Failed to load team members.",
+      );
     } finally {
       setIsLoadingTeam(false);
     }
   }, [user?.id]);
 
-  useEffect(() => { fetchTeam(); }, [fetchTeam]);
+  useEffect(() => {
+    fetchTeam();
+  }, [fetchTeam]);
 
   // ── Invite form ────────────────────────────────────────────────────────────
-  const [email, setEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<InviteRole>('GATE_SCANNER');
+  const [email, setEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<InviteRole>("GATE_SCANNER");
   const [isSending, setIsSending] = useState(false);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) { toast.error('Please enter an email address.'); return; }
-    if (!user?.id) { toast.error('Not authenticated.'); return; }
+    if (!email.trim()) {
+      toast.error("Please enter an email address.");
+      return;
+    }
+    if (!user?.id) {
+      toast.error("Not authenticated.");
+      return;
+    }
 
     setIsSending(true);
     try {
       // Backend resolves user UUID from email internally
-      const newMember = await inviteTeamMember(user.id, email.trim(), inviteRole);
-      setTeam(prev => [...prev, newMember]);
-      setEmail('');
+      const newMember = await inviteTeamMember(
+        user.id,
+        email.trim(),
+        inviteRole,
+      );
+      setTeam((prev) => [...prev, newMember]);
+      setEmail("");
       toast.success(`Invitation sent to ${email.trim()}.`);
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Failed to send invitation.');
+      toast.error(err.response?.data?.message ?? "Failed to send invitation.");
     } finally {
       setIsSending(false);
     }
@@ -83,12 +104,30 @@ export default function TeamManagement() {
     setRemovingId(member.id);
     try {
       await removeTeamMember(user.id, member.id);
-      setTeam(prev => prev.filter(m => m.id !== member.id));
-      toast.success('Team member removed.');
+      setTeam((prev) => prev.filter((m) => m.id !== member.id));
+      toast.success("Team member removed.");
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Failed to remove team member.');
+      toast.error(
+        err.response?.data?.message ?? "Failed to remove team member.",
+      );
     } finally {
       setRemovingId(null);
+    }
+  };
+
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+
+  const handleResendInvite = async (memberId: string) => {
+    if (!user?.id) return;
+    setResendingInviteId(memberId);
+    try {
+      await resendTeamMemberInvite(user.id, memberId);
+      toast.success("Invitation resent successfully!");
+    } catch (error: any) {
+      console.error('Failed to resend invite', error);
+      toast.error(error.response?.data?.message ?? "Failed to resend the invitation.");
+    } finally {
+      setResendingInviteId(null);
     }
   };
 
@@ -98,14 +137,16 @@ export default function TeamManagement() {
    * the original account holder.
    */
   const isProtectedRow = (member: TeamMemberResponse) =>
-    member.role === 'ORGANIZER';
+    member.role === "ORGANIZER";
 
   return (
     <SidebarLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Team Management</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Team Management
+            </h1>
             <p className="text-slate-500 dark:text-slate-400">
               Invite co-organizers and gate scanners to help manage your events.
             </p>
@@ -116,7 +157,9 @@ export default function TeamManagement() {
             className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoadingTeam ? 'animate-spin text-blue-500' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${isLoadingTeam ? "animate-spin text-blue-500" : ""}`}
+            />
           </button>
         </div>
 
@@ -130,13 +173,15 @@ export default function TeamManagement() {
               </h2>
               <form onSubmit={handleInvite} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Email Address</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Email Address
+                  </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                       type="email"
                       value={email}
-                      onChange={e => setEmail(e.target.value)}
+                      onChange={(e) => setEmail(e.target.value)}
                       placeholder="colleague@university.edu"
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     />
@@ -149,7 +194,9 @@ export default function TeamManagement() {
                     <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <select
                       value={inviteRole}
-                      onChange={e => setInviteRole(e.target.value as InviteRole)}
+                      onChange={(e) =>
+                        setInviteRole(e.target.value as InviteRole)
+                      }
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
                     >
                       <option value="CO_ORGANIZER">Co-Organizer</option>
@@ -157,9 +204,9 @@ export default function TeamManagement() {
                     </select>
                   </div>
                   <p className="text-xs text-slate-500 mt-2">
-                    {inviteRole === 'CO_ORGANIZER'
-                      ? 'Can manage events, view reports, and invite others.'
-                      : 'Can only access the mobile scanner to validate tickets.'}
+                    {inviteRole === "CO_ORGANIZER"
+                      ? "Can manage events, view reports, and invite others."
+                      : "Can only access the mobile scanner to validate tickets."}
                   </p>
                 </div>
 
@@ -169,7 +216,7 @@ export default function TeamManagement() {
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-colors mt-2 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSending && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {isSending ? 'Sending...' : 'Send Invitation'}
+                  {isSending ? "Sending..." : "Send Invitation"}
                 </button>
               </form>
             </div>
@@ -180,33 +227,48 @@ export default function TeamManagement() {
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
               <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h2 className="text-lg font-bold">Current Team</h2>
-                <span className="text-xs text-slate-400">{team.length} member{team.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-slate-400">
+                  {team.length} member{team.length !== 1 ? "s" : ""}
+                </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                      <th className="p-4 font-bold text-sm text-slate-500 dark:text-slate-400">User</th>
-                      <th className="p-4 font-bold text-sm text-slate-500 dark:text-slate-400">Role</th>
-                      <th className="p-4 font-bold text-sm text-slate-500 dark:text-slate-400 text-right">Actions</th>
+                      <th className="p-4 font-bold text-sm text-slate-500 dark:text-slate-400">
+                        User
+                      </th>
+                      <th className="p-4 font-bold text-sm text-slate-500 dark:text-slate-400">
+                        Role
+                      </th>
+                      <th className="p-4 font-bold text-sm text-slate-500 dark:text-slate-400 text-right">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoadingTeam ? (
                       <tr>
-                        <td colSpan={3} className="p-8 text-center text-slate-500">
+                        <td
+                          colSpan={3}
+                          className="p-8 text-center text-slate-500"
+                        >
                           <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
                           Loading team members...
                         </td>
                       </tr>
                     ) : team.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                          No team members yet. Invite someone to help manage your events.
+                        <td
+                          colSpan={3}
+                          className="p-8 text-center text-slate-500 dark:text-slate-400"
+                        >
+                          No team members yet. Invite someone to help manage
+                          your events.
                         </td>
                       </tr>
                     ) : (
-                      team.map(member => {
+                      team.map((member) => {
                         const protected_ = isProtectedRow(member);
                         const isRemoving = removingId === member.id;
                         return (
@@ -234,10 +296,12 @@ export default function TeamManagement() {
                             <td className="p-4">
                               <span
                                 className={`px-2.5 py-1 rounded-md text-xs font-medium ${
-                                  ROLE_BADGE[member.role as BackendRole] ?? 'bg-slate-100 text-slate-700'
+                                  ROLE_BADGE[member.role as BackendRole] ??
+                                  "bg-slate-100 text-slate-700"
                                 }`}
                               >
-                                {ROLE_LABELS[member.role as BackendRole] ?? member.role}
+                                {ROLE_LABELS[member.role as BackendRole] ??
+                                  member.role}
                               </span>
                             </td>
                             <td className="p-4 text-right">
@@ -249,18 +313,32 @@ export default function TeamManagement() {
                                   <Trash2 className="w-4 h-4" />
                                 </span>
                               ) : (
-                                <button
-                                  onClick={() => handleRemove(member)}
-                                  disabled={isRemoving}
-                                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
-                                  title="Remove member"
-                                >
-                                  {isRemoving ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="w-4 h-4" />
-                                  )}
-                                </button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => handleResendInvite(member.id)}
+                                    disabled={resendingInviteId === member.id}
+                                    className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                    title="Resend Invitation"
+                                  >
+                                    {resendingInviteId === member.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Mail className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemove(member)}
+                                    disabled={isRemoving}
+                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                    title="Remove member"
+                                  >
+                                    {isRemoving ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
                               )}
                             </td>
                           </tr>

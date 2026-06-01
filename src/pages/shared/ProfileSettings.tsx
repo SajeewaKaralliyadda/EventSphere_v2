@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Lock, Bell, Upload, CheckCircle2, Loader2 } from 'lucide-react';
+import { User, Lock, Bell, Upload, CheckCircle2, Loader2, Eye, EyeOff } from 'lucide-react';
 import DynamicButton from '../../components/ui/DynamicButton';
 import { useAuth } from '../../contexts/AuthContext';
 import SidebarLayout from '../../components/ui/SidebarLayout';
@@ -12,6 +12,8 @@ export default function ProfileSettings() {
   const { user, refreshProfile } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSavePersonal = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -205,24 +207,42 @@ export default function ProfileSettings() {
                   <form onSubmit={handleSaveSecurity} className="space-y-6 max-w-md">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium">New Password</label>
-                      <input
-                        name="newPassword"
-                        type="password"
-                        placeholder="Min. 8 characters"
-                        required
-                        minLength={8}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
-                      />
+                      <div className="relative">
+                        <input
+                          name="newPassword"
+                          type={showNewPassword ? "text" : "password"}
+                          placeholder="Min. 8 characters"
+                          required
+                          minLength={8}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        >
+                          {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-medium">Confirm New Password</label>
-                      <input
-                        name="confirmPassword"
-                        type="password"
-                        placeholder="Re-enter new password"
-                        required
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
-                      />
+                      <div className="relative">
+                        <input
+                          name="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Re-enter new password"
+                          required
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
                     </div>
                     <div className="pt-4">
                       <DynamicButton type="submit" className="px-6 py-2.5" disabled={isSaving}>

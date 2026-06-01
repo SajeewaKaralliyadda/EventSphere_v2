@@ -39,6 +39,12 @@ export default function OrganizerPublicProfile() {
   const [organizer, setOrganizer] = useState<PublicOrganizerResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [isReporting, setIsReporting] = useState(false);
   const [activeTab, setActiveTab] = useState<'events' | 'reviews'>('events');
 
   useEffect(() => {
@@ -49,6 +55,32 @@ export default function OrganizerPublicProfile() {
       .catch(() => setError('Organizer profile not found.'))
       .finally(() => setLoading(false));
   }, [organizerId]);
+
+  const handleReport = async () => {
+    if (!reportReason) {
+      toast.error('Please select a reason.');
+      return;
+    }
+    if (!organizer) return;
+
+    setIsReporting(true);
+    try {
+      await submitDispute({
+        targetId: organizer.id,
+        targetType: 'ORGANIZER',
+        tenantId: organizer.tenantId,
+        reason: reportReason,
+        description: reportDescription,
+        reporterId: user?.id,
+      });
+      toast.success('Report submitted successfully.');
+      setReportModalOpen(false);
+    } catch (err) {
+      toast.error('Failed to submit report.');
+    } finally {
+      setIsReporting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -220,6 +252,55 @@ export default function OrganizerPublicProfile() {
           </div>
         )}
       </main>
+
+      {/* Report Modal */}
+      {reportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <h3 className="text-xl font-bold mb-4">Report Organizer</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason</label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a reason</option>
+                  <option value="Fake Organization">Fake Organization</option>
+                  <option value="Scam/Fraud">Scam / Fraud</option>
+                  <option value="Inappropriate Content">Inappropriate Content</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Details (Optional)</label>
+                <textarea
+                  value={reportDescription}
+                  onChange={(e) => setReportDescription(e.target.value)}
+                  placeholder="Provide more details..."
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setReportModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-medium hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReport}
+                disabled={isReporting || !reportReason}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isReporting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
