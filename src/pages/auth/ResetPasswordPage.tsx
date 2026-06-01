@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Globe, Lock, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Globe, Lock, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import toast from "react-hot-toast";
 import logo from "../../assets/logo.png";
@@ -13,6 +13,8 @@ export default function ResetPasswordPage() {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -165,15 +167,22 @@ export default function ResetPasswordPage() {
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     <input
                       id="new-password"
-                      type="password"
+                      type={showNewPassword ? "text" : "password"}
                       required
                       minLength={6}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="At least 6 characters"
-                      className={`${inputClass} pl-11`}
+                      className={`${inputClass} pl-11 pr-12`}
                       autoComplete="new-password"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    >
+                      {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                   </div>
                   {/* Strength indicator */}
                   {newPassword.length > 0 && (
@@ -212,13 +221,13 @@ export default function ResetPasswordPage() {
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     <input
                       id="confirm-password"
-                      type="password"
+                      type={showConfirmPassword ? "text" : "password"}
                       required
                       minLength={6}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat your new password"
-                      className={`${inputClass} pl-11 ${
+                      className={`${inputClass} pl-11 pr-20 ${
                         confirmPassword.length > 0 && confirmPassword !== newPassword
                           ? "border-red-400 dark:border-red-500 focus:ring-red-400"
                           : confirmPassword.length > 0 && confirmPassword === newPassword
@@ -227,9 +236,17 @@ export default function ResetPasswordPage() {
                       }`}
                       autoComplete="new-password"
                     />
+                    {/* Toggle Password button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                     {/* Match indicator icon */}
                     {confirmPassword.length > 0 && (
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         {confirmPassword === newPassword ? (
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                         ) : (

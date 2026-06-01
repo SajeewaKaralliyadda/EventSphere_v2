@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, ArrowLeft, Plus, Minus, Star, User, Users, Share2, Facebook, Twitter, MessageCircle, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, ArrowLeft, Plus, Minus, Star, User, Users, Share2, Facebook, Twitter, MessageCircle, Loader2, Flag } from 'lucide-react';
 import GlobalNavbar from '../../components/ui/GlobalNavbar';
 import { useAuth } from '../../contexts/AuthContext';
-import { getEventDetail, PublicEventDetailResponse } from '../../services/publicService';
+import { getEventDetail, submitDispute, PublicEventDetailResponse } from '../../services/publicService';
+import toast from 'react-hot-toast';
 
 function formatDate(iso: string): string {
   try {
@@ -36,6 +37,11 @@ export default function EventDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tickets, setTickets] = useState<Record<string, number>>({});
+  
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [isReporting, setIsReporting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -76,6 +82,32 @@ export default function EventDetails() {
       tiers: event.ticketTiers.map(t => ({ id: t.id, name: t.name, price: t.price, capacity: t.capacity, description: '' })),
     };
     navigate('/checkout', { state: { event: checkoutEvent, tickets, totalPrice } });
+  };
+
+  const handleReport = async () => {
+    if (!reportReason) {
+      toast.error('Please select a reason.');
+      return;
+    }
+    if (!event) return;
+
+    setIsReporting(true);
+    try {
+      await submitDispute({
+        targetId: event.id,
+        targetType: 'EVENT',
+        tenantId: event.tenantId,
+        reason: reportReason,
+        description: reportDescription,
+        reporterId: user?.id,
+      });
+      toast.success('Report submitted successfully.');
+      setReportModalOpen(false);
+    } catch (err) {
+      toast.error('Failed to submit report.');
+    } finally {
+      setIsReporting(false);
+    }
   };
 
   if (loading) {
@@ -279,13 +311,22 @@ export default function EventDetails() {
                 </div>
               </div>
 
-              {/* Share */}
+              {/* Share & Actions */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
                 <h3 className="font-bold text-lg mb-4 flex items-center justify-center gap-2"><Share2 className="w-5 h-5" /> Share Event</h3>
-                <div className="flex items-center justify-center gap-4">
+                <div className="flex items-center justify-center gap-4 mb-6">
                   <button className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center hover:scale-110 transition-transform"><Facebook className="w-5 h-5" /></button>
                   <button className="w-12 h-12 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-500 dark:text-sky-400 flex items-center justify-center hover:scale-110 transition-transform"><Twitter className="w-5 h-5" /></button>
                   <button className="w-12 h-12 rounded-full bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center hover:scale-110 transition-transform"><MessageCircle className="w-5 h-5" /></button>
+                </div>
+                
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <button
+                    onClick={() => setReportModalOpen(true)}
+                    className="flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-red-500 transition-colors mx-auto"
+                  >
+                    <Flag className="w-4 h-4" /> Report this event
+                  </button>
                 </div>
               </div>
             </div>
@@ -293,6 +334,55 @@ export default function EventDetails() {
 
         </div>
       </main>
+
+      {/* Report Modal */}
+      {reportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <h3 className="text-xl font-bold mb-4">Report Event</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason</label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a reason</option>
+                  <option value="Inappropriate Content">Inappropriate Content</option>
+                  <option value="Scam/Fraud">Scam / Fraud</option>
+                  <option value="Intellectual Property Violation">Intellectual Property Violation</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Details (Optional)</label>
+                <textarea
+                  value={reportDescription}
+                  onChange={(e) => setReportDescription(e.target.value)}
+                  placeholder="Provide more details..."
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setReportModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-medium hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReport}
+                disabled={isReporting || !reportReason}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isReporting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -54,6 +54,7 @@ import DisputeResolution from "./pages/tenant-admin/DisputeResolution";
 import GlobalAnnouncements from "./pages/super-admin/GlobalAnnouncements";
 import EmailCampaignManager from "./pages/super-admin/EmailCampaignManager";
 import PartnershipRequests from "./pages/super-admin/PartnershipRequests";
+import ContactMessages from "./pages/super-admin/ContactMessages";
 
 import EventsListPage from "./pages/public/EventsListPage";
 
@@ -124,6 +125,10 @@ export default function App() {
               <Route
                 path="/super-admin/partnerships"
                 element={<PartnershipRequests />}
+              />
+              <Route
+                path="/super-admin/contact"
+                element={<ContactMessages />}
               />
               <Route
                 path="/super-admin"

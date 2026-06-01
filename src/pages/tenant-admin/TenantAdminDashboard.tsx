@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import SidebarLayout from '../../components/ui/SidebarLayout';
 import DynamicButton from '../../components/ui/DynamicButton';
-import { Plus, Users, Calendar, GraduationCap, Ticket, TrendingUp, Activity } from 'lucide-react';
+import { Plus, Users, Calendar, GraduationCap, Ticket, TrendingUp, Activity, Trash, MoreVertical, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getDashboardStats, getTicketSalesData, inviteOrganizer } from '../../services/tenantAdminService';
+import { getDashboardStats, getTicketSalesData, inviteOrganizer, listEvents, deleteGlobalEvent } from '../../services/tenantAdminService';
 import type { TenantDashboardStats, TicketSalesPoint } from '../../services/tenantAdminService';
 
 const initialSalesData: TicketSalesPoint[] = [
@@ -31,6 +31,14 @@ export default function TenantAdminDashboard() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'EVENTS'>('OVERVIEW');
+  const [events, setEvents] = useState<any[]>([]);
+  const [isEventsLoading, setIsEventsLoading] = useState(false);
+  
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   React.useEffect(() => {
     const fetchStats = async () => {
@@ -50,6 +58,23 @@ export default function TenantAdminDashboard() {
     fetchStats();
   }, []);
 
+  React.useEffect(() => {
+    if (activeTab === 'EVENTS') {
+      const fetchEvents = async () => {
+        setIsEventsLoading(true);
+        try {
+          const data = await listEvents();
+          setEvents(data);
+        } catch (error) {
+          toast.error('Failed to load events.');
+        } finally {
+          setIsEventsLoading(false);
+        }
+      };
+      fetchEvents();
+    }
+  }, [activeTab]);
+
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
     setIsInviting(true);
@@ -62,6 +87,23 @@ export default function TenantAdminDashboard() {
       toast.error('Failed to send invitation');
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmText === 'DELETE' && selectedEvent) {
+      setIsDeleting(true);
+      try {
+        await deleteGlobalEvent(selectedEvent.id);
+        setEvents(prev => prev.filter(e => e.id !== selectedEvent.id));
+        toast.success(`Event "${selectedEvent.title}" deleted.`);
+        setDeleteModalOpen(false);
+        setSelectedEvent(null);
+      } catch (err: any) {
+        toast.error(err.response?.data?.message ?? 'Failed to delete event.');
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -80,8 +122,31 @@ export default function TenantAdminDashboard() {
         </DynamicButton>
       </div>
 
-      {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="flex border-b border-slate-200 dark:border-slate-800 mb-6 gap-6">
+        <button
+          onClick={() => setActiveTab('OVERVIEW')}
+          className={`pb-3 font-medium transition-colors ${
+            activeTab === 'OVERVIEW'
+              ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('EVENTS')}
+          className={`pb-3 font-medium transition-colors ${
+            activeTab === 'EVENTS'
+              ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          Event Management
+        </button>
+      </div>
+
+      {activeTab === 'OVERVIEW' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
         {/* Stat Card 1: Registered Students */}
         <div className={`${glassCard} flex flex-col justify-between`}>
@@ -186,6 +251,75 @@ export default function TenantAdminDashboard() {
         </div>
 
       </div>
+      ) : (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm min-h-[400px]">
+          <h2 className="text-xl font-bold mb-6">Manage Events</h2>
+          {isEventsLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : events.length === 0 ? (
+            <p className="text-slate-500 dark:text-slate-400 text-center p-8">No events found for this university.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800">
+                    <th className="pb-3 text-sm font-medium text-slate-500 dark:text-slate-400 px-4">Event</th>
+                    <th className="pb-3 text-sm font-medium text-slate-500 dark:text-slate-400 px-4">Date</th>
+                    <th className="pb-3 text-sm font-medium text-slate-500 dark:text-slate-400 px-4">Status</th>
+                    <th className="pb-3 text-sm font-medium text-slate-500 dark:text-slate-400 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                  {events.map((evt) => (
+                    <tr key={evt.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={evt.coverImageUrl || 'https://via.placeholder.com/150?text=Event'} 
+                            alt={evt.title} 
+                            className="w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-slate-800" 
+                          />
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white line-clamp-1">{evt.title}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-[200px]">{evt.description}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-sm text-slate-600 dark:text-slate-300">
+                        {evt.eventDate ? new Date(evt.eventDate).toLocaleDateString() : 'TBA'}
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          evt.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                          evt.status === 'PENDING_APPROVAL' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
+                          'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {evt.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <button
+                          onClick={() => {
+                            setSelectedEvent(evt);
+                            setDeleteConfirmText('');
+                            setDeleteModalOpen(true);
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                          title="Delete Event"
+                        >
+                          <Trash className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <AnimatePresence>
         {isInviteModalOpen && (
@@ -233,6 +367,68 @@ export default function TenantAdminDashboard() {
                     className="px-5 py-2.5 rounded-xl font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isInviting ? 'Sending...' : 'Send Invite'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Event Modal */}
+      <AnimatePresence>
+        {deleteModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setDeleteModalOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800"
+            >
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+                  <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
+                    <Trash className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl font-bold">Delete Event (Admin)</h3>
+                </div>
+                
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                  You are about to delete <strong className="text-slate-900 dark:text-white">{selectedEvent?.title}</strong> as a Tenant Admin. This overrides the organizer's control and cannot be undone.
+                </p>
+
+                <div className="space-y-2 mb-8">
+                  <label className="block text-sm font-medium">Type <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-red-600 dark:text-red-400">DELETE</span> to confirm</label>
+                  <input 
+                    type="text" 
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3">
+                  <button 
+                    onClick={() => setDeleteModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    Keep Event
+                  </button>
+                  <button 
+                    onClick={handleConfirmDelete}
+                    disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+                    className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isDeleting ? 'Deleting...' : 'Confirm Delete'}
                   </button>
                 </div>
               </div>

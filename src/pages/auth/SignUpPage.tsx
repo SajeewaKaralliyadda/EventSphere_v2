@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Globe, Upload, AlertCircle } from "lucide-react";
+import { Globe, Upload, AlertCircle, Eye, EyeOff } from "lucide-react";
 import DynamicButton from "../../components/ui/DynamicButton";
 import { supabase } from "../../lib/supabase";
 import api from "../../lib/api";
-import { getActiveUniversities } from "../../services/publicService";
+import { getActiveUniversities, getTenantFaculties, type FacultyDto } from "../../services/publicService";
 import logo from "../../assets/logo.png";
 
 const inputClass =
@@ -71,6 +71,8 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -88,6 +90,9 @@ export default function SignUpPage() {
   const [approvalDocFile, setApprovalDocFile] = useState<File | null>(null);
   const [approvalDocUrl, setApprovalDocUrl] = useState<string | null>(null);
   const [approvalDocUploading, setApprovalDocUploading] = useState(false);
+
+  const [faculties, setFaculties] = useState<FacultyDto[]>([]);
+  const [facultiesLoading, setFacultiesLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +115,29 @@ export default function SignUpPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (tenantId) {
+      setFacultiesLoading(true);
+      getTenantFaculties(tenantId)
+        .then((data) => {
+          if (!cancelled) setFaculties(data || []);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch faculties", err);
+          if (!cancelled) setFaculties([]);
+        })
+        .finally(() => {
+          if (!cancelled) setFacultiesLoading(false);
+        });
+    } else {
+      setFaculties([]);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId]);
 
   useEffect(() => {
     if (!isStudent) {
@@ -456,27 +484,45 @@ export default function SignUpPage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Password
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={inputClass}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className={`${inputClass} pr-12`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Confirm Password
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={inputClass}
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className={`${inputClass} pr-12`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -542,16 +588,26 @@ export default function SignUpPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Faculty / Major
+                          Faculty / Major <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
+                        <select
                           required
                           value={faculty}
                           onChange={(e) => setFaculty(e.target.value)}
-                          placeholder="e.g. Computer Science"
+                          disabled={facultiesLoading || !tenantId}
                           className={inputClass}
-                        />
+                        >
+                          <option value="">
+                            {facultiesLoading
+                              ? "Loading faculties..."
+                              : "Select your faculty"}
+                          </option>
+                          {faculties.map((f) => (
+                            <option key={f.id} value={f.name}>
+                              {f.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">

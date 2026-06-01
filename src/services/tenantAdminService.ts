@@ -281,3 +281,15 @@ export const inviteOrganizer = (email: string): Promise<void> =>
     .post('/api/v1/tenantadmin/organizers/invite', { email })
     .then(() => undefined);
 
+/**
+ * DELETE /api/v1/events/{eventId}
+ */
+export const deleteGlobalEvent = (eventId: string): Promise<void> =>
+  api.delete(`/api/v1/events/${eventId}`).then(() => undefined);
+
+/**
+ * GET /api/v1/tenantadmin/dashboard/events
+ */
+export const listEvents = (): Promise<any[]> =>
+  api.get('/api/v1/tenantadmin/dashboard/events').then(r => r.data);
+
