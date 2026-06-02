@@ -57,6 +57,23 @@ import PartnershipRequests from "./pages/super-admin/PartnershipRequests";
 import ContactMessages from "./pages/super-admin/ContactMessages";
 
 import EventsListPage from "./pages/public/EventsListPage";
+import { useAuth } from "./contexts/AuthContext";
+
+function OrganizerIndexRedirect() {
+  const { user } = useAuth();
+  if (user?.role === "GATE_SCANNER") {
+    return <Navigate to="/organizer/scanner" replace />;
+  }
+  return <Navigate to="/organizer/dashboard" replace />;
+}
+
+function OrganizerStrictGuard() {
+  const { user } = useAuth();
+  if (user?.role === "GATE_SCANNER") {
+    return <Navigate to="/organizer/scanner" replace />;
+  }
+  return <Outlet />;
+}
 
 export default function App() {
   // Ensure dark mode is applied by default on the HTML element for the initial render
@@ -170,25 +187,28 @@ export default function App() {
                 />
               }
             >
-              <Route
-                path="/organizer/dashboard"
-                element={<OrganizerDashboard />}
-              />
-              <Route path="/organizer/reports" element={<OrganizerReports />} />
-              <Route path="/organizer/refunds" element={<RefundManagement />} />
-              <Route
-                path="/organizer/create-event"
-                element={<EventCreationWizard />}
-              />
-              <Route path="/organizer/edit-event/:id" element={<EditEvent />} />
               <Route path="/organizer/scanner" element={<QRScannerMobile />} />
-              <Route path="/organizer/promo" element={<PromoManagement />} />
-              <Route path="/organizer/guests" element={<GuestList />} />
-              <Route path="/organizer/team" element={<TeamManagement />} />
               <Route
                 path="/organizer"
-                element={<Navigate to="/organizer/dashboard" replace />}
+                element={<OrganizerIndexRedirect />}
               />
+              
+              <Route element={<OrganizerStrictGuard />}>
+                <Route
+                  path="/organizer/dashboard"
+                  element={<OrganizerDashboard />}
+                />
+                <Route path="/organizer/reports" element={<OrganizerReports />} />
+                <Route path="/organizer/refunds" element={<RefundManagement />} />
+                <Route
+                  path="/organizer/create-event"
+                  element={<EventCreationWizard />}
+                />
+                <Route path="/organizer/edit-event/:id" element={<EditEvent />} />
+                <Route path="/organizer/promo" element={<PromoManagement />} />
+                <Route path="/organizer/guests" element={<GuestList />} />
+                <Route path="/organizer/team" element={<TeamManagement />} />
+              </Route>
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={["ATTENDEE"]} />}>

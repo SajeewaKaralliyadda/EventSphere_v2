@@ -59,12 +59,13 @@ export default function LoginPage() {
         navigate("/super-admin/dashboard", { replace: true });
       } else if (role === "TENANT_ADMIN") {
         navigate("/tenant-admin/dashboard", { replace: true });
+      } else if (role === "GATE_SCANNER") {
+        navigate("/organizer/scanner", { replace: true });
       } else if (
         role === "ORGANIZER" ||
-        role === "CO_ORGANIZER" ||
-        role === "GATE_SCANNER"
+        role === "CO_ORGANIZER"
       ) {
-        navigate("/organizer", { replace: true });
+        navigate("/organizer/dashboard", { replace: true });
       } else if (role === "ATTENDEE") {
         navigate("/attendee", { replace: true });
       } else {
