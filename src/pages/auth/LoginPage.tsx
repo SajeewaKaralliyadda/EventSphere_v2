@@ -168,7 +168,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Error Message පෙන්නන කොටස */}
+          {/* Error Message Section */}
           {error && (
             <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-start gap-3 text-sm">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
