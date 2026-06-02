@@ -83,8 +83,16 @@ export default function AcceptInvite() {
       });
       if (pwError) throw pwError;
 
+      let existingRole: Role | undefined;
+      try {
+        const { data: me } = await api.get<{ role: Role }>("/api/identity/users/me");
+        existingRole = me?.role;
+      } catch (e) {
+        console.warn("Failed to fetch existing profile role before registration");
+      }
+
       const meta = user.user_metadata as Record<string, string | undefined>;
-      const role = (meta?.role as Role) || "CO_ORGANIZER";
+      const role = existingRole || (meta?.role as Role) || "CO_ORGANIZER";
       const tenantRaw = meta?.tenant_id ?? meta?.tenantId;
       const invitedBy = meta?.invited_by ?? meta?.invitedBy ?? null;
 
