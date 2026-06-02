@@ -39,10 +39,16 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
         { name: 'Settings', icon: Settings, path: '/settings' },
       ];
     }
+    if (user?.role === 'GATE_SCANNER') {
+      return [
+        { name: 'Scanner', icon: Ticket, path: '/organizer/scanner' },
+        { name: 'Settings', icon: Settings, path: '/settings' },
+      ];
+    }
+    
     if (
       user?.role === 'ORGANIZER' ||
-      user?.role === 'CO_ORGANIZER' ||
-      user?.role === 'GATE_SCANNER'
+      user?.role === 'CO_ORGANIZER'
     ) {
       return [
         { name: 'Dashboard', icon: LayoutDashboard, path: '/organizer/dashboard' },
