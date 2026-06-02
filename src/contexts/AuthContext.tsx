@@ -93,8 +93,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const fetchUserProfile = useCallback(
     async (sessionFromEvent?: Session | null) => {
       const session =
-        sessionFromEvent ??
-        (await supabase.auth.getSession()).data.session;
+        sessionFromEvent ?? (await supabase.auth.getSession()).data.session;
 
       if (!session?.user) {
         setUser(null);
@@ -105,11 +104,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       const accessToken = session.access_token;
 
       try {
-        const { data } = await api.get<BackendUserDto>("/api/identity/users/me", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
+        const { data } = await api.get<BackendUserDto>(
+          "/api/identity/users/me",
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
           },
-        });
+        );
         setUser(mapBackendToUser(data));
       } catch (error) {
         console.error("Error fetching user profile:", error);
@@ -144,7 +146,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   ): Promise<LoginResult> => {
     setIsLoading(true);
 
-    // 1. Supabase ලොගින් එකෙන් එන data එකත් (authData විදිහට) ගන්නවා
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
