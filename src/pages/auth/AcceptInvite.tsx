@@ -13,12 +13,12 @@ const inputClass =
 function dashboardPathForRole(role: Role): string {
   if (role === "SUPER_ADMIN") return "/super-admin/dashboard";
   if (role === "TENANT_ADMIN") return "/tenant-admin/dashboard";
+  if (role === "GATE_SCANNER") return "/organizer/scanner";
   if (
     role === "ORGANIZER" ||
-    role === "CO_ORGANIZER" ||
-    role === "GATE_SCANNER"
+    role === "CO_ORGANIZER"
   ) {
-    return "/organizer";
+    return "/organizer/dashboard";
   }
   return "/attendee";
 }
