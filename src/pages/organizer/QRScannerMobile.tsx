@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { motion, AnimatePresence } from 'motion/react';
-import { ScanLine, CheckCircle2, XCircle, ArrowLeft, Flashlight } from 'lucide-react';
+import { ScanLine, CheckCircle2, XCircle, ArrowLeft, Flashlight, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { validateTicket } from '../../services/organizerService';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function QRScannerMobile() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [scanStatus, setScanStatus] = useState<'scanning' | 'valid' | 'invalid'>('scanning');
   const [scannedData, setScannedData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'scan' | 'manual'>('scan');
@@ -42,15 +44,24 @@ export default function QRScannerMobile() {
     <div className="h-screen w-full bg-slate-950 flex flex-col overflow-hidden relative max-w-md mx-auto shadow-2xl">
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 p-6 z-20 flex justify-between items-center text-white">
-        <button onClick={() => navigate('/organizer')} className="p-2 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm font-bold tracking-widest uppercase">
+        <div className="flex-1 flex justify-start">
+          {user?.role !== 'GATE_SCANNER' && (
+            <button onClick={() => navigate('/organizer')} className="p-2 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors" title="Back to Dashboard">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+          )}
+        </div>
+        <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-sm font-bold tracking-widest uppercase whitespace-nowrap">
           Gate 1
         </div>
-        <button className="p-2 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors">
-          <Flashlight className="w-6 h-6" />
-        </button>
+        <div className="flex-1 flex justify-end gap-2">
+          <button className="p-2 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors">
+            <Flashlight className="w-6 h-6" />
+          </button>
+          <button onClick={() => logout()} className="p-2 bg-red-500/60 backdrop-blur-md rounded-full hover:bg-red-500/80 transition-colors" title="Sign Out">
+            <LogOut className="w-6 h-6" />
+          </button>
+        </div>
       </div>
 
       {/* Top Half: Camera Viewfinder or Manual Entry */}

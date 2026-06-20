@@ -64,11 +64,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 function mapBackendToUser(dto: BackendUserDto): User {
   let firstName = dto.firstName ?? "";
   let lastName = dto.lastName ?? "";
+  
+  // Fallback: split fullName if specific name fields are missing
   if ((!firstName || !lastName) && dto.fullName) {
     const parts = dto.fullName.trim().split(/\s+/);
     firstName = firstName || parts[0] || "";
     lastName = lastName || parts.slice(1).join(" ") || "";
   }
+  
   return {
     id: dto.id,
     email: dto.email,
@@ -129,6 +132,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Sync local state whenever Supabase session changes (login/logout/refresh)
       if (session?.user) {
         void fetchUserProfile(session);
       } else {
@@ -156,6 +160,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       throw error;
     }
 
+    // Try getting the token directly from signIn result, or fallback to fetching a fresh session
     let accessToken = authData.session?.access_token;
     if (!accessToken) {
       const {
