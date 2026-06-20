@@ -178,6 +178,7 @@ export default function EventCreationWizard() {
 
     try {
       // ── 1. Create the event ───────────────────────────────────────────────
+      // Submits main event data (including files) then sequentially creates related ticket tiers
       const isoDateTime = `${eventDate}T${eventTime}:00`;
       const createdEvent = await createEvent(user.id, {
         title: title.trim(),

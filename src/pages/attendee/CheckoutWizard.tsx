@@ -75,6 +75,7 @@ export default function CheckoutWizard() {
     e.preventDefault();
     setIsProcessing(true);
     try {
+      // Submits booking details to backend and redirects to Stripe Checkout if applicable
       const bookingResponse = await createBooking(event.id, tickets, appliedPromo?.code);
       if (bookingResponse.checkoutUrl) {
         window.location.href = bookingResponse.checkoutUrl;
@@ -93,6 +94,7 @@ export default function CheckoutWizard() {
     setIsCheckingPromo(true);
     setPromoError('');
     try {
+      // Validates promo code limits and conditions against the backend before applying discount
       const res = await api.post(`/api/public/promo-codes/validate`, {
         code: promoCode.toUpperCase(),
         eventId: event.id,

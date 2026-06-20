@@ -21,6 +21,7 @@ function requestAlreadyHasBearer(config: InternalAxiosRequestConfig): boolean {
 // Request Interceptor: attach Supabase JWT when a session exists (including invite finalization on /register).
 api.interceptors.request.use(
   async (config) => {
+    // Skips injecting the token if the request already has an Authorization header
     if (requestAlreadyHasBearer(config)) {
       return config;
     }

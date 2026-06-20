@@ -48,6 +48,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Dynamically apply the tenant's primary color to the CSS variables
   useEffect(() => {
+    // Injects tenant color into CSS root for dynamic theming across the app
     if (currentTenant?.primaryColor) {
       document.documentElement.style.setProperty('--tenant-primary', currentTenant.primaryColor);
     } else {

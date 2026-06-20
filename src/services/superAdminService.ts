@@ -160,6 +160,21 @@ export const markPayoutAsPaid = (
 // ─── Email Campaigns / Broadcast ─────────────────────────────────────────────
 
 /**
+ * GET /api/v1/superadmin/campaigns/general/reach
+ *
+ * Gets the estimated reach for a general campaign based on filters.
+ */
+export const getGeneralCampaignReach = (
+  targetRole?: string,
+  targetUniversity?: string,
+): Promise<number> =>
+  api
+    .get<number>('/api/v1/superadmin/campaigns/general/reach', {
+      params: { targetRole, targetUniversity },
+    })
+    .then(r => r.data);
+
+/**
  * POST /api/v1/superadmin/campaigns/general/broadcast
  *
  * Broadcasts a mass email to a filtered set of users.
