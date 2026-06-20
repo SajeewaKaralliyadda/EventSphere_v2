@@ -36,6 +36,7 @@ export function useWebSocket({ onNotificationReceived }: WebSocketHookProps) {
 
     client.onConnect = () => {
       console.log("Connected to STOMP");
+      // Subscribes to user-specific topic to receive real-time updates
       client.subscribe(`/topic/notifications/${user.id}`, (message) => {
         if (message.body) {
           const notification = JSON.parse(message.body);
@@ -54,10 +55,12 @@ export function useWebSocket({ onNotificationReceived }: WebSocketHookProps) {
       console.error("Additional details: " + frame.body);
     };
 
+    // Initiates the WebSocket connection
     client.activate();
     clientRef.current = client;
 
     return () => {
+      // Cleans up connection on component unmount
       client.deactivate();
     };
   }, [user?.id, onNotificationReceived]);

@@ -7,6 +7,7 @@ import {
   broadcastGeneralCampaign, 
   previewNewsletter, 
   broadcastNewsletter,
+  getGeneralCampaignReach,
   type TenantResponse 
 } from '../../services/superAdminService';
 
@@ -44,13 +45,17 @@ export default function EmailCampaignManager() {
   // Update reach only for general campaigns
   useEffect(() => {
     if (activeTab !== 'general') return;
-    let base = 15000;
-    if (targetRole === 'Attendees') base = 12000;
-    if (targetRole === 'Organizers') base = 2500;
-    if (targetRole === 'Tenant Admins') base = 500;
-    if (targetUniversity !== 'All Universities') base = Math.floor(base / Math.max(tenants.length, 1));
-    setEstimatedReach(base);
-  }, [targetRole, targetUniversity, tenants.length, activeTab]);
+    
+    const roleParam = targetRole === 'All Users' ? undefined : targetRole;
+    const universityParam = targetUniversity === 'All Universities' ? undefined : targetUniversity;
+
+    getGeneralCampaignReach(roleParam, universityParam)
+      .then((reach) => setEstimatedReach(reach))
+      .catch(() => {
+        // Fallback to 0 or handle error quietly
+        setEstimatedReach(0);
+      });
+  }, [targetRole, targetUniversity, activeTab]);
 
   const handleTestEmail = () => {
     if (activeTab === 'general' && (!subject || !body)) {
