@@ -43,7 +43,7 @@ export default function EventsListPage() {
   const [currentPage, setCurrentPage] = useState(0);
 
   // Debounce ref
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchEvents = useCallback(async (pageNum: number, append: boolean) => {
     if (pageNum === 0) setLoading(true); else setLoadingMore(true);

@@ -82,7 +82,7 @@ export default function EmailCampaignManager() {
         customMessage: customMessage,
       });
       // Handle the case where previewHandler returns 'html' instead of 'htmlContent' in DTO
-      setNewsletterPreviewHtml(res.html || res.htmlContent || 'Preview generated empty.');
+      setNewsletterPreviewHtml((res as any).html || res.htmlContent || 'Preview generated empty.');
       toast.success('Preview updated!');
     } catch (err) {
       toast.error('Failed to load preview. Please check dates.');
