@@ -75,11 +75,12 @@ export interface ApprovalDecisionRequest {
 
 export interface DisputeResponse {
   id: string;
-  organizer: string;
-  event: string;
+  targetName: string;
+  targetType: string;
   reason: string;
-  status: 'Open' | 'Resolved' | 'Suspended';
-  date: string;
+  description?: string;
+  status: string;
+  createdAt: string;
 }
 
 // ─── Customization Response Types ────────────────────────────────────────────

@@ -100,7 +100,13 @@ export default function SignUpPage() {
       try {
         // Uses the correct versioned endpoint: GET /api/public/home/universities
         const data = await getActiveUniversities();
-        if (!cancelled) setTenants(Array.isArray(data) ? data : []);
+        if (!cancelled) {
+          const formatted = (Array.isArray(data) ? data : []).map(t => ({
+            ...t,
+            allowedDomains: []
+          }));
+          setTenants(formatted);
+        }
       } catch (e) {
         console.error(e);
         if (!cancelled) {
